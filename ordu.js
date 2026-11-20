@@ -91,6 +91,12 @@ const ROBLOX_CLIENT_ID = (process.env.ROBLOX_CLIENT_ID || '').trim();
 const ROBLOX_CLIENT_SECRET = (process.env.ROBLOX_CLIENT_SECRET || '').trim();
 const ROBLOX_REDIRECT_URI = (process.env.ROBLOX_REDIRECT_URI || `${BASE_URL}/auth/roblox/callback`).trim();
 const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || '').trim();
+const GEMINI_API_KEYS = Array.from(new Set(
+    `${process.env.GEMINI_API_KEY || ''},${process.env.GEMINI_API_KEYS || ''}`
+        .split(/[,\s\n]+/)
+        .map(k => k.trim())
+        .filter(Boolean)
+));
 const DEFAULT_ROBLOX_GROUP_ID = (process.env.ROBLOX_GROUP_ID || '137412624').trim();
 const ROBLOX_API_KEY = (process.env.ROBLOX_API_KEY || '').trim();
 const ROBLOX_COOKIE = (process.env.ROBLOX_COOKIE || '').trim();
@@ -898,59 +904,100 @@ async function tamRutbeIslemiYap({ guild, robloxKullaniciAdi, hedefRolId, yetkil
 // ============================================================================
 // 6. GEMINI AI (AKILLI RÜTBE LİSTESİ, DOĞRU ROL OKUMA & AI MODERASYON)
 // ============================================================================
-async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTokens = 4096) {
-    if (!GEMINI_API_KEY) return '⚠️ GEMINI_API_KEY ortam değişkeni tanımlı değil.';
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+const geminiKotaBekleme = new Map(); // "keyIndex:model" -> unblockTimestamp
+
+async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTokens = 4096, mod = 'chat') {
+    if (!GEMINI_API_KEYS.length) return '⚠️ GEMINI_API_KEY ortam değişkeni tanımlı değil.';
+
+    const modelListesi = mod === 'mod'
+        ? ['gemini-2.5-flash-lite', 'gemini-2.0-flash-lite', 'gemini-2.0-flash']
+        : ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+
     const parts = [{ text: kullaniciMesaji }, ...extraParts];
-    const etkiliMaxTokens = Math.max(2048, Number(maxTokens) || 4096);
+    const etkiliMaxTokens = mod === 'mod' ? 120 : Math.max(2048, Number(maxTokens) || 4096);
+    const simdi = Date.now();
+    let sonHataMesaji = '';
+    let kotaDolduSayaci = 0;
 
-    const istekGonder = async (thinkingBudgetKullan = true) => {
-        const generationConfig = {
-            temperature: 0.45,
-            maxOutputTokens: etkiliMaxTokens
-        };
-        if (thinkingBudgetKullan) {
-            generationConfig.thinkingConfig = { thinkingBudget: 256 };
+    for (let kIdx = 0; kIdx < GEMINI_API_KEYS.length; kIdx++) {
+        const apiKey = GEMINI_API_KEYS[kIdx];
+        for (const modelAdi of modelListesi) {
+            const kovaKey = `${kIdx}:${modelAdi}`;
+            const kilitBitis = geminiKotaBekleme.get(kovaKey) || 0;
+            if (kilitBitis > simdi) {
+                kotaDolduSayaci++;
+                continue;
+            }
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelAdi}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+            const istekGonder = async (thinkingBudgetKullan) => {
+                const generationConfig = {
+                    temperature: mod === 'mod' ? 0.1 : 0.45,
+                    maxOutputTokens: etkiliMaxTokens
+                };
+                if (thinkingBudgetKullan && modelAdi.startsWith('gemini-2.5')) {
+                    generationConfig.thinkingConfig = { thinkingBudget: mod === 'mod' ? 0 : 256 };
+                }
+                const body = {
+                    systemInstruction: { parts: [{ text: sistemTalimati || 'Yardımcı bir asistansın.' }] },
+                    contents: [{ role: 'user', parts }],
+                    generationConfig
+                };
+                return guvenliFetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                }, 2);
+            };
+
+            let res = await istekGonder(true);
+            if (!res.ok && res.status === 400) {
+                res = await istekGonder(false);
+            }
+
+            if (res.status === 429) {
+                const errText = await res.text().catch(() => '');
+                kotaDolduSayaci++;
+                // Eğer limit: 0 veya günlük kota bittiyse 10 dk, anlık RPM ise 65 sn bu modeli atla
+                const kaliciLimitSifir = /limit:\s*0|PerDay/i.test(errText);
+                geminiKotaBekleme.set(kovaKey, Date.now() + (kaliciLimitSifir ? 10 * 60 * 1000 : 65 * 1000));
+                sonHataMesaji = 'Google AI Studio API kotası (429) doldu.';
+                continue;
+            }
+
+            if (!res.ok) {
+                const errText = await res.text().catch(() => '');
+                sonHataMesaji = `Gemini API Hatası (${res.status}): ${errText.slice(0, 160)}`;
+                continue;
+            }
+
+            const data = await res.json();
+            const candidate = data?.candidates?.[0];
+            if (!candidate) {
+                const blockReason = data?.promptFeedback?.blockReason;
+                if (blockReason) return `⚠️ Güvenlik filtresi nedeniyle yanıt engellendi (${blockReason}).`;
+                sonHataMesaji = 'AI boş aday yanıtı döndürdü.';
+                continue;
+            }
+
+            const metinParcalari = (candidate.content?.parts || [])
+                .filter(p => typeof p.text === 'string' && !p.thought)
+                .map(p => p.text);
+            const tamMetin = metinParcalari.join('').trim();
+
+            if (!tamMetin) {
+                sonHataMesaji = `AI metin üretemedi (${candidate.finishReason || 'Bilinmiyor'}).`;
+                continue;
+            }
+            return tamMetin;
         }
-        const body = {
-            systemInstruction: { parts: [{ text: sistemTalimati || 'Yardımcı bir asistansın.' }] },
-            contents: [{ role: 'user', parts }],
-            generationConfig
-        };
-        return guvenliFetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        }, 3);
-    };
-
-    let res = await istekGonder(true);
-    if (!res.ok && res.status === 400) {
-        res = await istekGonder(false);
     }
 
-    if (!res.ok) {
-        const errText = await res.text().catch(() => '');
-        throw new Error(`Gemini API Hatası (${res.status}): ${errText.slice(0, 200)}`);
+    if (kotaDolduSayaci > 0) {
+        throw new Error('Google AI Studio API kullanım kotası (429) tükendi. Yeni ücretsiz API anahtarı oluşturup Render → Environment → GEMINI_API_KEY alanına girin (birden fazla anahtarı virgülle ayırarak ekleyebilirsiniz).');
     }
-
-    const data = await res.json();
-    const candidate = data?.candidates?.[0];
-    if (!candidate) {
-        const blockReason = data?.promptFeedback?.blockReason;
-        if (blockReason) return `⚠️ Güvenlik filtresi nedeniyle yanıt engellendi (${blockReason}).`;
-        throw new Error('AI boş aday yanıtı döndürdü.');
-    }
-
-    const metinParcalari = (candidate.content?.parts || [])
-        .filter(p => typeof p.text === 'string' && !p.thought)
-        .map(p => p.text);
-    const tamMetin = metinParcalari.join('').trim();
-
-    if (!tamMetin) {
-        throw new Error(`AI metin üretemedi (Sebep: ${candidate.finishReason || 'Bilinmiyor'}).`);
-    }
-    return tamMetin;
+    throw new Error(sonHataMesaji || 'Gemini AI servisine şu an ulaşılamıyor.');
 }
 
 // 2000 karakter sınırını aşan AI yanıtlarını bölmeden parça parça gönderir
@@ -1080,13 +1127,19 @@ Operasyonlar: ${aktifOp} | Haftalık Nöbet İlk 5: ${nobetTop} | Seviye İlk 5:
 
 const aiModCooldown = new Map();
 async function aiModerasyonDenetle(mesajIcerik) {
-    if (!GEMINI_API_KEY || !mesajIcerik || mesajIcerik.trim().length < 2) return null;
+    const temiz = String(mesajIcerik || '').trim();
+    if (!GEMINI_API_KEYS.length || temiz.length < 3) return null;
+    // Sadece emoji, sayı veya çok kısa masum selamlaşmalarda API kotası harcama
+    if (/^(selam|slm|sa|as|merhaba|mrb|naber|nbr|iyi|tamam|tm|ok|evet|hayır|hayir|aynen|eyw|sağol|sagol|lol|xd|hg|hb)[!.?\s]*$/i.test(temiz)) {
+        return null;
+    }
     try {
         const yanit = await geminiSor(
-            'Sen bir Türkçe Discord moderasyon yapay zekasısın. Verilen mesajda küfür, hakaret, argo kısaltma (aq, amk, oç, sg, mk, piç, şerefsiz, vb. gizlenmiş veya harfleri bozulmuş küfürler dahil) veya ağır taciz var mı analiz et. SADECE şu JSON formatında yanıt ver: {"ihlal": true/false, "sebep": "kısa Türkçe sebep"}',
-            `Mesaj: "${mesajIcerik.slice(0, 400)}"`,
+            'Sen bir Türkçe Discord moderasyon yapay zekasısın. Verilen mesajda ağır küfür, hakaret, ailevi değerlere sövgü veya taciz var mı analiz et. Günlük samimi konuşmaları (naber, la, kanka, dostum vb.) ihlal sayma. SADECE şu JSON formatında yanıt ver: {"ihlal": true/false, "sebep": "kısa Türkçe sebep"}',
+            `Mesaj: "${temiz.slice(0, 350)}"`,
             [],
-            120
+            120,
+            'mod'
         );
         const match = yanit.match(/\{[\s\S]*\}/);
         if (match) {
