@@ -1,6 +1,7 @@
-"name": "ordu-yonetimi-discord-saas-bot",
+{
+  "name": "ordu-yonetimi-discord-saas-bot",
   "version": "5.0.0",
-  "description": "ORDU YÖNETİMİ (TSF) Discord Bot & Komuta Web Paneli",
+  "description": "ORDU YONETIMI (TSF) Discord Bot & Komuta Web Paneli",
   "main": "ordu.js",
   "scripts": {
     "start": "node ordu.js"
