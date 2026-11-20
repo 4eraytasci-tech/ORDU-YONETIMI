@@ -1,0 +1,154 @@
+{
+  "guilds": {
+    "1570150711294042153": {
+      "prefix": "!",
+      "aiAktif": true,
+      "aiSistemTalimati": "Sen ORDU YÖNETİMİ sunucusunun KİNG adlı zeki, saygılı, esprili ve çözüm odaklı yapay zeka asistanısın. Cevaplarını akıcı, net ve Türkçeye uygun ver.",
+      "robloxGrupId": "137412624",
+      "rutbeYetkiliRol": "",
+      "sesLogKanal": "",
+      "rolLogKanal": "",
+      "mesajLogKanal": "",
+      "girisCikisLogKanal": "",
+      "girisArkaPlanUrl": "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?auto=format&fit=crop&w=1000&q=80",
+      "cikisArkaPlanUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80",
+      "otoRol": "",
+      "ticketKategori": "",
+      "ticketYetkiliRol": "",
+      "ticketAiAktif": true,
+      "ticketSayac": 1,
+      "ticketKonular": [
+        {
+          "id": "genel_destek",
+          "isim": "Genel Destek",
+          "aciklama": "Sunucu hakkındaki genel sorularınız için",
+          "emoji": "💬"
+        },
+        {
+          "id": "sikayet_bildirim",
+          "isim": "Şikayet & Kural İhlali",
+          "aciklama": "Üye şikayeti veya kural ihlali bildirmek için",
+          "emoji": "🚨"
+        },
+        {
+          "id": "teknik_sorun",
+          "isim": "Teknik Destek & Hata",
+          "aciklama": "Bot, rol veya kanal sorunları için",
+          "emoji": "🛠️"
+        },
+        {
+          "id": "yetkili_basvuru",
+          "isim": "Yetkili & Ortaklık Başvurusu",
+          "aciklama": "Ekip başvurusu ve iş birliği talepleri için",
+          "emoji": "👑"
+        }
+      ],
+      "kapatilanBiletler": [],
+      "automod": {
+        "kufurEngel": true,
+        "linkEngel": false,
+        "capsEngel": false,
+        "spamEngel": false,
+        "muafRol": "",
+        "yasakliKelimeler": [
+          "amk",
+          "aq",
+          "oc",
+          "oç",
+          "piç",
+          "siktir",
+          "yarrak"
+        ]
+      },
+      "leveling": {
+        "aktif": true,
+        "seviyeKanal": "",
+        "xpCarpan": 1,
+        "kullanicilar": {}
+      },
+      "uyarilar": [],
+      "logs": []
+    },
+    "1572635305440321608": {
+      "prefix": "!",
+      "aiAktif": true,
+      "aiSistemTalimati": "Sen ORDU YÖNETİMİ sunucusunun KİNG adlı zeki, saygılı, esprili ve çözüm odaklı yapay zeka asistanısın. Cevaplarını akıcı, net ve Türkçeye uygun ver.",
+      "robloxGrupId": "137412624",
+      "rutbeYetkiliRol": "",
+      "sesLogKanal": "",
+      "rolLogKanal": "",
+      "mesajLogKanal": "",
+      "girisCikisLogKanal": "",
+      "girisArkaPlanUrl": "https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?auto=format&fit=crop&w=1000&q=80",
+      "cikisArkaPlanUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80",
+      "otoRol": "",
+      "ticketKategori": "",
+      "ticketYetkiliRol": "",
+      "ticketAiAktif": true,
+      "ticketSayac": 1,
+      "ticketKonular": [
+        {
+          "id": "genel_destek",
+          "isim": "Genel Destek",
+          "aciklama": "Sunucu hakkındaki genel sorularınız için",
+          "emoji": "💬"
+        },
+        {
+          "id": "sikayet_bildirim",
+          "isim": "Şikayet & Kural İhlali",
+          "aciklama": "Üye şikayeti veya kural ihlali bildirmek için",
+          "emoji": "🚨"
+        },
+        {
+          "id": "teknik_sorun",
+          "isim": "Teknik Destek & Hata",
+          "aciklama": "Bot, rol veya kanal sorunları için",
+          "emoji": "🛠️"
+        },
+        {
+          "id": "yetkili_basvuru",
+          "isim": "Yetkili & Ortaklık Başvurusu",
+          "aciklama": "Ekip başvurusu ve iş birliği talepleri için",
+          "emoji": "👑"
+        }
+      ],
+      "kapatilanBiletler": [],
+      "automod": {
+        "kufurEngel": true,
+        "linkEngel": false,
+        "capsEngel": false,
+        "spamEngel": false,
+        "muafRol": "",
+        "yasakliKelimeler": [
+          "amk",
+          "aq",
+          "oc",
+          "oç",
+          "piç",
+          "siktir",
+          "yarrak"
+        ]
+      },
+      "leveling": {
+        "aktif": true,
+        "seviyeKanal": "",
+        "xpCarpan": 1,
+        "kullanicilar": {
+          "1520781174656467154": {
+            "username": "turkaskeri347",
+            "xp": 24,
+            "seviye": 1
+          },
+          "928660587670564915": {
+            "username": ".wortexxq",
+            "xp": 24,
+            "seviye": 1
+          }
+        }
+      },
+      "uyarilar": [],
+      "logs": []
+    }
+  },
+  "kayitlar": []
+}

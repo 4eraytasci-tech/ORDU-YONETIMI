@@ -1,0 +1,175 @@
+{
+  "sunucular": {
+    "1570150711294042153": {
+      "prefix": "!",
+      "robloxGrupId": "137412624",
+      "rutbeYetkiliRol": "",
+      "rutbeOtoIsim": false,
+      "aiAktif": true,
+      "aiSistemTalimati": "Sen ORDU YÖNETİMİ (TSF) sunucusunun disiplinli, saygılı, stratejik düşünen ve Türkçeye tam uyumlu Komuta Yapay Zeka Asistanısın. Kullanıcılara rütbe bilincine uygun saygılı ve net yanıtlar ver.",
+      "ticketKategori": "",
+      "ticketYetkiliRol": "",
+      "ticketAiAktif": true,
+      "ticketPanelGorselUrl": "",
+      "ticketKonular": [
+        {
+          "id": "rutbe_talebi",
+          "isim": "Rütbe & Terfi Talebi",
+          "aciklama": "TSF Roblox ve Discord rütbe eşitleme işlemleri",
+          "emoji": "🎖️",
+          "gorselUrl": ""
+        },
+        {
+          "id": "sikayet_bildirim",
+          "isim": "Disiplin & Şikayet Bildirimi",
+          "aciklama": "Kural ihlali veya personel şikayetleri",
+          "emoji": "⚖️",
+          "gorselUrl": ""
+        },
+        {
+          "id": "genel_destek",
+          "isim": "Genel Komuta Desteği",
+          "aciklama": "Sunucu ve operasyon hakkında sorularınız",
+          "emoji": "🎫",
+          "gorselUrl": ""
+        }
+      ],
+      "kapatilanBiletler": [],
+      "automod": {
+        "kufurEngel": true,
+        "linkEngel": false,
+        "capsEngel": false,
+        "spamEngel": true,
+        "muafRol": "",
+        "yasakliKelimeler": []
+      },
+      "sesLogKanal": "",
+      "rolLogKanal": "",
+      "mesajLogKanal": "",
+      "girisCikisLogKanal": "",
+      "otoRol": "",
+      "girisArkaPlanUrl": "https://images.unsplash.com/photo-1579912437766-7896df6d3cd3?auto=format&fit=crop&w=1200&q=80",
+      "cikisArkaPlanUrl": "https://images.unsplash.com/photo-1508614589041-895b88991e3e?auto=format&fit=crop&w=1200&q=80",
+      "leveling": {
+        "aktif": true,
+        "seviyeKanal": "",
+        "xpCarpan": 1,
+        "kullanicilar": {}
+      },
+      "uyarilar": [],
+      "logs": []
+    },
+    "1572635305440321608": {
+      "prefix": "!",
+      "robloxGrupId": "137412624",
+      "rutbeYetkiliRol": "",
+      "rutbeOtoIsim": false,
+      "aiAktif": true,
+      "aiSistemTalimati": "Sen ORDU YÖNETİMİ (TSF) sunucusunun disiplinli, saygılı, stratejik düşünen ve Türkçeye tam uyumlu Komuta Yapay Zeka Asistanısın. Kullanıcılara rütbe bilincine uygun saygılı ve net yanıtlar ver.",
+      "ticketKategori": "",
+      "ticketYetkiliRol": "",
+      "ticketAiAktif": true,
+      "ticketPanelGorselUrl": "",
+      "ticketKonular": [
+        {
+          "id": "rutbe_talebi",
+          "isim": "Rütbe & Terfi Talebi",
+          "aciklama": "TSF Roblox ve Discord rütbe eşitleme işlemleri",
+          "emoji": "🎖️",
+          "gorselUrl": ""
+        },
+        {
+          "id": "sikayet_bildirim",
+          "isim": "Disiplin & Şikayet Bildirimi",
+          "aciklama": "Kural ihlali veya personel şikayetleri",
+          "emoji": "⚖️",
+          "gorselUrl": ""
+        },
+        {
+          "id": "genel_destek",
+          "isim": "Genel Komuta Desteği",
+          "aciklama": "Sunucu ve operasyon hakkında sorularınız",
+          "emoji": "🎫",
+          "gorselUrl": ""
+        }
+      ],
+      "kapatilanBiletler": [],
+      "automod": {
+        "kufurEngel": true,
+        "linkEngel": false,
+        "capsEngel": false,
+        "spamEngel": true,
+        "muafRol": "",
+        "yasakliKelimeler": []
+      },
+      "sesLogKanal": "",
+      "rolLogKanal": "",
+      "mesajLogKanal": "",
+      "girisCikisLogKanal": "",
+      "otoRol": "",
+      "girisArkaPlanUrl": "https://images.unsplash.com/photo-1579912437766-7896df6d3cd3?auto=format&fit=crop&w=1200&q=80",
+      "cikisArkaPlanUrl": "https://images.unsplash.com/photo-1508614589041-895b88991e3e?auto=format&fit=crop&w=1200&q=80",
+      "leveling": {
+        "aktif": true,
+        "seviyeKanal": "1572635308141449308",
+        "xpCarpan": 1,
+        "kullanicilar": {
+          "1520781174656467154": {
+            "seviye": 1,
+            "xp": 103,
+            "username": "turkaskeri347"
+          },
+          "928660587670564915": {
+            "seviye": 1,
+            "xp": 25,
+            "username": ".wortexxq"
+          }
+        }
+      },
+      "uyarilar": [],
+      "logs": [
+        {
+          "id": "3a2e7fca-22f1-48d4-8d47-ddb6250a0a85",
+          "tarih": "20.11.2026 18:53:27",
+          "kategori": "SES",
+          "islem": "Ses Kanalı Hareketi",
+          "detay": "🔇 🔊 Müzik Odasi ses kanalından ayrıldı.",
+          "kullanici": "turkaskeri347"
+        },
+        {
+          "id": "2a2abd51-2280-4190-9356-4570a984f2ec",
+          "tarih": "20.11.2026 18:53:07",
+          "kategori": "SES",
+          "islem": "Canlı Dinleme Durduruldu",
+          "detay": "Kayıtsız kapatıldı",
+          "kullanici": "Turkaskeri347"
+        },
+        {
+          "id": "5491f8cf-20b7-469a-b909-efebf41cecc7",
+          "tarih": "20.11.2026 18:52:56",
+          "kategori": "SES",
+          "islem": "Ses Kanalı Hareketi",
+          "detay": "🔊 🔊 Müzik Odasi ses kanalına katıldı.",
+          "kullanici": "turkaskeri347"
+        },
+        {
+          "id": "021e65ba-1513-4769-b96e-40ff7498449f",
+          "tarih": "20.11.2026 18:51:03",
+          "kategori": "SES",
+          "islem": "Canlı Dinleme Başlatıldı",
+          "detay": "#🔊 Müzik Odasi",
+          "kullanici": "Turkaskeri347"
+        },
+        {
+          "id": "5e051a40-7e44-4c15-a6cf-9d430bb599d2",
+          "tarih": "20.11.2026 18:49:58",
+          "kategori": "PANEL",
+          "islem": "Ayarlar Güncellendi",
+          "detay": "Seviye ve XP sistemi ayarları kaydedildi.",
+          "kullanici": "Turkaskeri347"
+        }
+      ]
+    }
+  },
+  "sesKayitlari": []
+}
