@@ -3,45 +3,185 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ORDU YÖNETİMİ — Komuta & Kontrol Merkezi v4.0</title>
+    <title>ORDU YÖNETİMİ — Komuta & Kontrol Merkezi</title>
     <style>
         :root {
-            --bg-main: #0b0f17;
-            --bg-sidebar: #101622;
-            --bg-card: #151d2e;
-            --bg-card-hover: #1a2438;
-            --bg-input: #0d131f;
-            --border: #232f46;
-            --border-light: #2e3e5c;
+            --bg-main: #090d16;
+            --bg-sidebar: #0e1420;
+            --bg-card: #131b2b;
+            --bg-card-hover: #182236;
+            --bg-input: #0b101b;
+            --border: #1e293b;
+            --border-light: #2d3d56;
             --primary: #3b82f6;
             --accent: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
             --purple: #8b5cf6;
-            --text-main: #f1f5f9;
+            --text-main: #f8fafc;
             --text-muted: #94a3b8;
             --text-dim: #64748b;
-            --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-            --radius: 12px;
+            --shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+            --radius: 13px;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', -apple-system, Roboto, sans-serif; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; }
         body { background-color: var(--bg-main); color: var(--text-main); min-height: 100vh; overflow-x: hidden; }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar { width: 7px; height: 7px; }
         ::-webkit-scrollbar-track { background: var(--bg-main); }
         ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
 
-        /* LOGIN */
-        #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at top right, rgba(59,130,246,0.16), transparent 45%), var(--bg-main); padding: 20px; }
-        .login-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 18px; padding: 40px 36px; max-width: 500px; width: 100%; text-align: center; box-shadow: var(--shadow); }
-        .login-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(16,185,129,0.12); color: var(--accent); border: 1px solid rgba(16,185,129,0.3); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; margin-bottom: 18px; }
-        .login-logo { width: 76px; height: 76px; background: linear-gradient(135deg, var(--primary), #1d4ed8); border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 36px; margin: 0 auto 20px; }
-        .login-box h1 { font-size: 26px; font-weight: 800; margin-bottom: 10px; }
-        .login-box p { color: var(--text-muted); font-size: 14px; line-height: 1.6; margin-bottom: 22px; }
-        .auth-alert { display: none; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.45); color: #fca5a5; padding: 12px; border-radius: 10px; font-size: 13px; text-align: left; margin-bottom: 18px; }
-        .btn-discord { width: 100%; background: #5865F2; color: #fff; border: none; padding: 14px; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; margin-bottom: 12px; }
-        .btn-local-login { width: 100%; background: rgba(16,185,129,0.14); color: #34d399; border: 1px solid rgba(16,185,129,0.35); padding: 12px; border-radius: 12px; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+        /* GELİŞMİŞ KOMUTA GİRİŞ EKRANI */
+        #login-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background:
+                radial-gradient(circle at 18% 20%, rgba(59, 130, 246, 0.18), transparent 42%),
+                radial-gradient(circle at 82% 80%, rgba(16, 185, 129, 0.14), transparent 42%),
+                linear-gradient(180deg, #070a11 0%, #0b101b 100%);
+            padding: 24px;
+            position: relative;
+        }
+        #login-screen::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+        }
+        .login-shell {
+            position: relative;
+            z-index: 2;
+            max-width: 920px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            background: rgba(19, 27, 43, 0.92);
+            backdrop-filter: blur(18px);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            border-radius: 22px;
+            overflow: hidden;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.65);
+        }
+        .login-left {
+            padding: 44px 40px;
+            background: linear-gradient(145deg, rgba(30, 58, 138, 0.28), rgba(15, 23, 42, 0.6));
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .login-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            width: fit-content;
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.32);
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 11.5px;
+            font-weight: 700;
+            letter-spacing: 0.6px;
+            margin-bottom: 22px;
+        }
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+        .login-left h1 {
+            font-size: 30px;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            line-height: 1.2;
+            margin-bottom: 12px;
+        }
+        .login-left p {
+            color: var(--text-muted);
+            font-size: 14px;
+            line-height: 1.65;
+            margin-bottom: 24px;
+        }
+        .login-grid-features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .login-feat {
+            background: rgba(9, 13, 22, 0.65);
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            padding: 11px 13px;
+            font-size: 12.5px;
+            color: #cbd5e1;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-weight: 600;
+        }
+        .login-right {
+            padding: 44px 36px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+        }
+        .login-emblem {
+            width: 74px;
+            height: 74px;
+            margin: 0 auto 18px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            box-shadow: 0 12px 28px rgba(37, 99, 235, 0.35);
+        }
+        .login-right h2 { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+        .login-right small { color: var(--text-muted); font-size: 13px; display: block; margin-bottom: 24px; line-height: 1.5; }
+        .auth-alert { display: none; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.45); color: #fca5a5; padding: 11px; border-radius: 10px; font-size: 12.5px; text-align: left; margin-bottom: 16px; }
+        .btn-discord {
+            width: 100%;
+            background: linear-gradient(135deg, #5865F2, #4752c4);
+            color: #fff;
+            border: none;
+            padding: 14px 18px;
+            border-radius: 12px;
+            font-size: 14.5px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-decoration: none;
+            margin-bottom: 12px;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .btn-discord:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(88, 101, 242, 0.38); }
+        .btn-local-login {
+            width: 100%;
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.32);
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-local-login:hover { background: rgba(16, 185, 129, 0.22); }
 
-        /* LAYOUT */
+        /* ANA PANEL LAYOUT */
         #app-layout { display: none; min-height: 100vh; }
         .sidebar { width: 270px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; z-index: 100; transition: transform 0.25s; }
         .sidebar-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
@@ -63,7 +203,7 @@
         .user-mini span { font-size: 10.5px; color: var(--accent); }
 
         .main-wrapper { margin-left: 270px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
-        .topbar { height: 64px; background: rgba(16,22,34,0.88); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 90; }
+        .topbar { height: 64px; background: rgba(14,20,32,0.88); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 90; }
         .mobile-menu-btn { display: none; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); padding: 7px 11px; border-radius: 8px; cursor: pointer; }
         .guild-pill { display: flex; align-items: center; gap: 10px; background: var(--bg-card); border: 1px solid var(--border); padding: 5px 14px 5px 7px; border-radius: 999px; }
         .guild-pill img { width: 26px; height: 26px; border-radius: 50%; }
@@ -112,13 +252,14 @@
         .btn-primary { background: var(--primary); }
         .btn-success { background: var(--accent); }
         .btn-danger { background: var(--danger); }
+        .btn-warning { background: var(--warning); color: #090d16; }
         .btn-secondary { background: var(--bg-input); border-color: var(--border-light); color: var(--text-main); }
         .btn-sm { padding: 5px 10px; font-size: 11.5px; }
 
         .table-responsive { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
         th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
-        th { background: rgba(0,0,0,0.2); color: var(--text-muted); font-size: 11px; text-transform: uppercase; }
+        th { background: rgba(0,0,0,0.22); color: var(--text-muted); font-size: 11px; text-transform: uppercase; }
 
         .badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
         .badge-blue { background: rgba(59,130,246,0.16); color: #60a5fa; }
@@ -149,6 +290,8 @@
         .toast.error { border-left-color: var(--danger); }
 
         @media (max-width: 960px) {
+            .login-shell { grid-template-columns: 1fr; }
+            .login-left { border-right: none; border-bottom: 1px solid var(--border); }
             .sidebar { transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); }
             .main-wrapper { margin-left: 0; }
@@ -161,14 +304,31 @@
 
 <!-- GİRİŞ EKRANI -->
 <div id="login-screen">
-    <div class="login-box">
-        <div class="login-badge">🟢 SİSTEM ÇEVRİMİÇİ • TSF KOMUTA AĞI v4.0</div>
-        <div class="login-logo">🎖️</div>
-        <h1>ORDU YÖNETİMİ</h1>
-        <p>TSF Rütbe Hiyerarşisi, Yetkili Karneli Ticket, Rol Farkındalıklı AI, Canlı Ses & Toplantı Tutanağı, LOA ve Operasyon Komuta Merkezi.</p>
-        <div id="auth-error-box" class="auth-alert"></div>
-        <a href="/auth/discord" class="btn-discord">Discord ile Yönetim Paneline Gir</a>
-        <button type="button" class="btn-local-login" onclick="yerelKomutaGirisi()">⚡ Yerel Komuta Girişi (Localhost)</button>
+    <div class="login-shell">
+        <div class="login-left">
+            <div>
+                <div class="login-status-pill"><span class="pulse-dot"></span> TSF KOMUTA AĞI • ÇEVRİMİÇİ</div>
+                <h1>ORDU YÖNETİMİ<br>Komuta & Kontrol Merkezi</h1>
+                <p>TSF Roblox rütbe senkronizasyonu, yetkili karneli destek biletleri, rol farkındalıklı yapay zeka asistanı, canlı ses stüdyosu ve gelişmiş disiplin moderasyonu tek panelde.</p>
+            </div>
+            <div class="login-grid-features">
+                <div class="login-feat">🎖️ TSF Rütbe & Sicil</div>
+                <div class="login-feat">🎫 Ticket & Yetkili Karnesi</div>
+                <div class="login-feat">🎙️ Ses Odası & WAV Kayıt</div>
+                <div class="login-feat">🛡️ Gelişmiş AutoMod</div>
+            </div>
+        </div>
+        <div class="login-right">
+            <div class="login-emblem">🎖️</div>
+            <h2>Yetkili Girişi</h2>
+            <small>Yönetici yetkisine sahip olduğunuz sunucuları kontrol etmek için Discord hesabınızla oturum açın.</small>
+            <div id="auth-error-box" class="auth-alert"></div>
+            <a href="/auth/discord" class="btn-discord">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028z"/></svg>
+                Discord ile Komuta Paneline Gir
+            </a>
+            <button type="button" class="btn-local-login" onclick="yerelKomutaGirisi()">⚡ Yerel Komuta Girişi (Localhost)</button>
+        </div>
     </div>
 </div>
 
@@ -199,10 +359,10 @@
             <button class="nav-item" data-tab="duyuru" onclick="sekmeAc('duyuru', this)">📢 Duyuru Stüdyosu</button>
 
             <div class="nav-section-title">Güvenlik & Özelleştirme</div>
-            <button class="nav-item" data-tab="automod" onclick="sekmeAc('automod', this)">🛡️ Gelişmiş AutoMod</button>
+            <button class="nav-item" data-tab="automod" onclick="sekmeAc('automod', this)">🛡️ Moderasyon & AutoMod</button>
             <button class="nav-item" data-tab="loglar" onclick="sekmeAc('loglar', this)">🖼️ Kartlar, Loglar & XP</button>
             <button class="nav-item" data-tab="tema" onclick="sekmeAc('tema', this)">🎨 Tema & Modül Yönetimi</button>
-            <button class="nav-item" data-tab="denetim" onclick="sekmeAc('denetim', this)">⚖️ Komuta Logları & Uyarı</button>
+            <button class="nav-item" data-tab="denetim" onclick="sekmeAc('denetim', this)">⚖️ Komuta Logları & Sicil</button>
         </nav>
         <div class="sidebar-footer">
             <div class="user-mini">
@@ -274,15 +434,15 @@
                     <div class="card">
                         <div class="card-header">
                             <h3>⚡ Roblox & Discord Rütbe Ver (TSF)</h3>
-                            <button class="btn btn-secondary btn-sm" onclick="robloxRolleriYukle(true)">🔄 Rütbeleri Çek</button>
+                            <button class="btn btn-secondary btn-sm" onclick="robloxRolleriYukle(true)">🔄 Rütbeleri Yenile</button>
                         </div>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                             <div class="form-group"><label>Roblox Grup ID</label><input type="text" id="inp-robloxGrupId" class="form-control"></div>
                             <div class="form-group"><label>Rütbe Yetkili Rolü</label><select id="inp-rutbeYetkiliRol" class="form-control role-select"></select></div>
                         </div>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                            <div class="form-group"><label>Roblox Kullanıcı Adı</label><input type="text" id="web-roblox-user" class="form-control" placeholder="Örn: Ahmet123"></div>
-                            <div class="form-group"><label>Verilecek Rütbe</label><select id="web-roblox-role" class="form-control"><option value="">-- Yükleyin --</option></select></div>
+                            <div class="form-group"><label>Roblox Kullanıcı Adı</label><input type="text" id="web-roblox-user" class="form-control" placeholder="Örn: ERAYKRALHD"></div>
+                            <div class="form-group"><label>Verilecek Rütbe</label><select id="web-roblox-role" class="form-control"><option value="">-- Rütbeler Yükleniyor --</option></select></div>
                         </div>
                         <button class="btn btn-primary" onclick="webPanelRutbeVer()">🎖️ Rütbeyi Ver & Eşitle</button>
                     </div>
@@ -410,10 +570,10 @@
                 </div>
             </section>
 
-            <!-- 5. SES DİNLEME, TOPLANTI TUTANAĞI & ÖZEL SES ODASI -->
+            <!-- 5. SES DİNLEME, TOPLANTI TUTANAĞI & ÖZEL SES ODASI PANELİ -->
             <section id="tab-ses" class="tab-section">
                 <div class="page-header">
-                    <div><h1>🎙️ Canlı Ses Dinleme, AI Tutanak & Özel Ses Odası</h1><p>Onarılmış WAV kayıt motoru, Gemini AI toplantı tutanağı ve özelleştirilebilir ses odası oluşturucu.</p></div>
+                    <div><h1>🎙️ Canlı Ses Dinleme, AI Tutanak & Özel Ses Odası</h1><p>Canlı ses dinleme, WAV kayıt, metin kanalına butonlu özel oda paneli kurulumu ve anlık oda oluşturma.</p></div>
                 </div>
                 <div class="grid-2">
                     <div class="card">
@@ -432,19 +592,30 @@
                     </div>
 
                     <div class="card">
-                        <div class="card-header"><h3>🔊 Özel Ses Odası Oluştur</h3></div>
-                        <div style="display:grid; grid-template-columns:2fr 1fr; gap:10px;">
-                            <div class="form-group"><label>Oda İsmi</label><input type="text" id="oda-isim" class="form-control" placeholder="Örn: Komuta Toplantısı"></div>
-                            <div class="form-group"><label>Kişi Limiti (0=Sınırsız)</label><input type="number" id="oda-limit" class="form-control" min="0" max="99" value="0"></div>
-                        </div>
-                        <div class="switch-row">
-                            <div class="switch-row-info"><strong>🔒 Özel / Kilitli Oda</strong><span>Sadece seçilen üye/roller girebilir</span></div>
-                            <label class="toggle-switch"><input type="checkbox" id="oda-ozel"><span class="toggle-slider"></span></label>
-                        </div>
+                        <div class="card-header"><h3>📤 Metin Kanalına "Özel Ses Odası" Paneli Kur</h3></div>
+                        <p style="font-size:12.5px; color:var(--text-muted); margin-bottom:12px;">Seçtiğiniz metin kanalına üyelerin tıklayıp kendi ses odalarını açabilecekleri butonlu komuta kartı gönderir.</p>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                            <div class="form-group"><label>İzinli Üye (Opsiyonel)</label><select id="oda-izinli-uye" class="form-control member-select"></select></div>
-                            <div class="form-group"><label>İzinli Rol (Opsiyonel)</label><select id="oda-izinli-rol" class="form-control role-select"></select></div>
+                            <div class="form-group"><label>Panel Metin Kanalı</label><select id="ses-panel-kanal" class="form-control text-channel-select"></select></div>
+                            <div class="form-group"><label>Odaların Açılacağı Kategori</label><select id="ses-panel-kategori" class="form-control category-select"></select></div>
                         </div>
+                        <div class="form-group"><label>Panel Başlığı</label><input type="text" id="ses-panel-baslik" class="form-control" value="🎙️ Özel Ses Odası Oluşturma Merkezi"></div>
+                        <div class="form-group"><label>Panel Açıklaması</label><textarea id="ses-panel-aciklama" class="form-control" rows="2">Aşağıdaki butonlara tıklayarak kendinize veya ekibinize özel ses odası açabilirsiniz. Oda boşaldığında otomatik silinir.</textarea></div>
+                        <button class="btn btn-success" onclick="sesOdasiPanelKur()">📨 Metin Kanalına Ses Odası Paneli Kur</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"><h3>🔊 Panelden Anında Özel Ses Odası Oluştur</h3></div>
+                    <div style="display:grid; grid-template-columns:2fr 1fr 1.5fr 1.5fr; gap:10px; align-items:end;">
+                        <div class="form-group" style="margin:0;"><label>Oda İsmi</label><input type="text" id="oda-isim" class="form-control" placeholder="Örn: Komuta Toplantısı"></div>
+                        <div class="form-group" style="margin:0;"><label>Limit (0=Sınırsız)</label><input type="number" id="oda-limit" class="form-control" min="0" max="99" value="0"></div>
+                        <div class="form-group" style="margin:0;"><label>İzinli Üye</label><select id="oda-izinli-uye" class="form-control member-select"></select></div>
+                        <div class="form-group" style="margin:0;"><label>İzinli Rol</label><select id="oda-izinli-rol" class="form-control role-select"></select></div>
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:12px;">
+                        <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+                            <input type="checkbox" id="oda-ozel"> 🔒 Özel / Kilitli Oda Olsun
+                        </label>
                         <button class="btn btn-primary" onclick="ozelSesOdasiOlustur()">➕ Ses Odası Oluştur (Boşalınca Oto-Sil)</button>
                     </div>
                 </div>
@@ -517,19 +688,43 @@
                 </div>
             </section>
 
-            <!-- 8. GELİŞMİŞ AUTOMOD -->
+            <!-- 8. GELİŞMİŞ MODERASYON & AUTOMOD -->
             <section id="tab-automod" class="tab-section">
                 <div class="page-header">
-                    <div><h1>🛡️ Gelişmiş AutoMod & Otomatik Ceza</h1><p>Filtreler ve ihlal durumunda uygulanacak otomatik ceza aksiyonları.</p></div>
-                    <button class="btn btn-success" onclick="automodAyarKaydet()">💾 AutoMod Kaydet</button>
+                    <div><h1>🛡️ Gelişmiş Moderasyon & AutoMod Kalkanı</h1><p>Anında disiplin işlemleri, otomatik filtreler ve yeni hesap koruması.</p></div>
+                    <button class="btn btn-success" onclick="automodAyarKaydet()">💾 AutoMod Ayarlarını Kaydet</button>
                 </div>
+
+                <div class="card">
+                    <div class="card-header"><h3>⚖️ Hızlı Komuta Moderasyon İşlemi (Panelden Doğrudan Uygula)</h3></div>
+                    <div style="display:grid; grid-template-columns:1.5fr 1fr 0.8fr 2fr; gap:10px; align-items:end;">
+                        <div class="form-group" style="margin:0;"><label>Hedef Personel</label><select id="mod-hedef-uye" class="form-control member-select"></select></div>
+                        <div class="form-group" style="margin:0;">
+                            <label>İşlem Türü</label>
+                            <select id="mod-islem-tur" class="form-control">
+                                <option value="uyar">⚠️ Resmi Uyarı Ver</option>
+                                <option value="sustur">🔇 Sustur (Timeout)</option>
+                                <option value="at">👢 Sunucudan At (Kick)</option>
+                                <option value="yasakla">🔨 Kalıcı Yasakla (Ban)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin:0;"><label>Süre (Dk)</label><input type="number" id="mod-sure-dk" class="form-control" value="10" min="1" max="10080"></div>
+                        <div class="form-group" style="margin:0;"><label>Sebep</label><input type="text" id="mod-sebep" class="form-control" placeholder="Disiplin kuralı ihlali"></div>
+                    </div>
+                    <div style="margin-top:12px; text-align:right;">
+                        <button class="btn btn-danger" onclick="panelModerasyonUygula()">⚡ Moderasyon İşlemini Uygula</button>
+                    </div>
+                </div>
+
                 <div class="grid-2">
                     <div class="card">
-                        <div class="card-header"><h3>⚡ Koruma Kuralları & Ceza Aksiyonu</h3></div>
-                        <div class="switch-row"><div class="switch-row-info"><strong>🤬 Küfür Filtresi</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-kufurEngel"><span class="toggle-slider"></span></label></div>
+                        <div class="card-header"><h3>⚡ Otomatik Koruma Kuralları & Ceza</h3></div>
+                        <div class="switch-row"><div class="switch-row-info"><strong>🤬 Küfür & Hakaret Filtresi</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-kufurEngel"><span class="toggle-slider"></span></label></div>
                         <div class="switch-row"><div class="switch-row-info"><strong>🔗 Link & Davet Engeli</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-linkEngel"><span class="toggle-slider"></span></label></div>
                         <div class="switch-row"><div class="switch-row-info"><strong>🔠 CAPS LOCK Engeli</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-capsEngel"><span class="toggle-slider"></span></label></div>
-                        <div class="switch-row"><div class="switch-row-info"><strong>🛑 Anti-Spam</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-spamEngel"><span class="toggle-slider"></span></label></div>
+                        <div class="switch-row"><div class="switch-row-info"><strong>🛑 Hızlı Mesaj Flood / Spam</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-spamEngel"><span class="toggle-slider"></span></label></div>
+                        <div class="switch-row"><div class="switch-row-info"><strong>🔁 Tekrarlanan Mesaj Engeli</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-tekrarMesajEngel"><span class="toggle-slider"></span></label></div>
+
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;">
                             <div class="form-group">
                                 <label>İhlal Ceza Aksiyonu</label>
@@ -541,18 +736,28 @@
                             </div>
                             <div class="form-group"><label>Timeout Süresi (Dakika)</label><input type="number" id="inp-timeoutDakika" class="form-control" min="1" max="1440" value="5"></div>
                         </div>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
                             <div class="form-group"><label>Oto-Ceza Uyarı Eşiği</label><input type="number" id="inp-otoCezaEsik" class="form-control" min="1" max="20" value="3"></div>
-                            <div class="form-group"><label>AutoMod Muaf Rolü</label><select id="inp-muafRol" class="form-control role-select"></select></div>
+                            <div class="form-group"><label>Yeni Hesap Koruması (Gün)</label><input type="number" id="inp-yeniHesapGun" class="form-control" min="0" max="365" value="0"></div>
+                            <div class="form-group"><label>Muaf Rol</label><select id="inp-muafRol" class="form-control role-select"></select></div>
                         </div>
                     </div>
+
                     <div class="card">
-                        <div class="card-header"><h3>🚫 Özel Yasaklı Kelimeler</h3></div>
-                        <div style="display:flex; gap:8px;">
-                            <input type="text" id="yeni-yasakli-kelime" class="form-control" placeholder="Kelime ekle...">
+                        <div class="card-header"><h3>🚫 Özel Yasaklı Kelimeler & Son Uyarılar</h3></div>
+                        <div style="display:flex; gap:8px; margin-bottom:14px;">
+                            <input type="text" id="yeni-yasakli-kelime" class="form-control" placeholder="Yasaklı kelime ekle...">
                             <button class="btn btn-danger" onclick="yasakliKelimeEkle()">+ Ekle</button>
                         </div>
-                        <div id="yasakli-kelimeler-cloud" class="tag-cloud"></div>
+                        <div id="yasakli-kelimeler-cloud" class="tag-cloud" style="margin-bottom:18px;"></div>
+
+                        <h4 style="font-size:13.5px; margin-bottom:8px; color:var(--text-muted);">⚠️ Kayıtlı Resmi Uyarılar</h4>
+                        <div class="table-responsive" style="max-height:220px; overflow-y:auto;">
+                            <table>
+                                <thead><tr><th>Personel</th><th>Sebep</th><th>Yetkili</th><th>Sil</th></tr></thead>
+                                <tbody id="uyarilar-body"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -566,6 +771,7 @@
                 <div class="grid-2">
                     <div class="card">
                         <div class="card-header"><h3>📡 Log Kanalları & Oto-Rol</h3></div>
+                        <div class="form-group"><label>Moderasyon Log Kanalı</label><select id="inp-modLogKanal" class="form-control text-channel-select"></select></div>
                         <div class="form-group"><label>Ses Log Kanalı</label><select id="inp-sesLogKanal" class="form-control text-channel-select"></select></div>
                         <div class="form-group"><label>Giriş-Çıkış Kart Kanalı</label><select id="inp-girisCikisLogKanal" class="form-control text-channel-select"></select></div>
                         <div class="form-group"><label>Oto-Rol</label><select id="inp-otoRol" class="form-control role-select"></select></div>
@@ -616,9 +822,9 @@
                 </div>
             </section>
 
-            <!-- 11. FİLTRELENEBİLİR KOMUTA LOGLARI & UYARILAR -->
+            <!-- 11. FİLTRELENEBİLİR KOMUTA LOGLARI -->
             <section id="tab-denetim" class="tab-section">
-                <div class="page-header"><div><h1>⚖️ Filtrelenebilir Komuta Logları & Uyarılar</h1></div></div>
+                <div class="page-header"><div><h1>⚖️ Filtrelenebilir Komuta Logları</h1></div></div>
                 <div class="card">
                     <div class="card-header">
                         <h3>📋 Komuta Denetim Kayıtları</h3>
@@ -648,7 +854,7 @@
     </div>
 </div>
 
-<!-- GENEL MODAL (TICKET SOHBET & AI TOPLANTI TUTANAĞI) -->
+<!-- GENEL MODAL -->
 <div id="genel-modal" class="modal-backdrop" onclick="if(event.target===this) this.classList.remove('open')">
     <div class="modal-card">
         <div class="modal-header">
@@ -761,7 +967,7 @@
         r.setProperty('--primary', t.primary || '#3b82f6');
         r.setProperty('--accent', t.accent || '#10b981');
         const paletler = {
-            navy: ['#0b0f17', '#101622', '#151d2e'],
+            navy: ['#090d16', '#0e1420', '#131b2b'],
             olive: ['#0f1410', '#151c16', '#1c261d'],
             crimson: ['#140b0e', '#1c1014', '#26151b'],
             purple: ['#0f0b17', '#161022', '#1e152e']
@@ -780,6 +986,18 @@
         });
     }
 
+    function robloxRolDropdownDoldur(roller) {
+        const sel = document.getElementById('web-roblox-role');
+        const uygunlar = (roller || []).filter(x => x.rank > 0 && x.rank < 255);
+        if (uygunlar.length > 0) {
+            sel.innerHTML = '<option value="">-- Verilecek Rütbeyi Seçin --</option>' +
+                uygunlar.map(x => `<option value="${x.id}">[${x.rank}] ${esc(x.name)}</option>`).join('');
+        } else {
+            sel.innerHTML = '<option value="">-- TSF Rütbesi Seçin --</option>' +
+                (geciciRutbeler || []).map(r => `<option value="${esc(r.ad)}">${esc(r.ad)} (${esc(r.sinif)})</option>`).join('');
+        }
+    }
+
     async function panelVerileriniYukle() {
         if (!currentGuildId) return;
         const d = await apiFetch(`/api/panel/${currentGuildId}`);
@@ -791,7 +1009,6 @@
         document.getElementById('topbar-guild-icon').src = d.sunucuIkon;
         document.getElementById('topbar-ping').textContent = d.ping ?? 0;
 
-        // Genel Bakış
         document.getElementById('stat-uye').textContent = d.uyeSayisi;
         document.getElementById('stat-cevrimici').textContent = `${d.cevrimiciUye} çevrimiçi`;
         document.getElementById('stat-memnuniyet').textContent = `%${d.ticketIstatistik.memnuniyetOrani}`;
@@ -809,11 +1026,12 @@
         selectDoldur('.role-select', d.roller, '-- Rol --');
         selectDoldur('.member-select', d.uyeler, '-- Personel Seçin --');
 
-        // Rütbe
+        // Rütbe & Roblox Dropdown Otomatik Doldurma
         document.getElementById('inp-robloxGrupId').value = a.robloxGrupId || '';
         document.getElementById('inp-rutbeYetkiliRol').value = a.rutbeYetkiliRol || '';
         geciciRutbeler = JSON.parse(JSON.stringify(a.tsfRutbeler || []));
         rutbeleriCiz();
+        robloxRolDropdownDoldur(d.robloxRoller || []);
 
         // AI
         document.getElementById('inp-aiAktif').checked = !!a.aiAktif;
@@ -825,7 +1043,7 @@
             <label class="checkbox-item"><input type="checkbox" class="ai-kanal-cb" value="${c.id}" ${izinli.has(c.id) ? 'checked' : ''}> ${esc(c.name)}</label>
         `).join('');
 
-        // Ticket & Karne
+        // Ticket
         document.getElementById('t-stat-toplam').textContent = d.ticketIstatistik.toplamSayisi;
         document.getElementById('t-stat-dagilim').textContent = `${d.ticketIstatistik.acikSayisi} Açık • ${d.ticketIstatistik.kapaliSayisi} Kapalı`;
         document.getElementById('t-stat-puan').textContent = `${d.ticketIstatistik.ortalamaPuan} ★`;
@@ -853,6 +1071,7 @@
         `).join('') || '<tr><td colspan="6" style="color:var(--text-dim);">Kapalı bilet yok.</td></tr>';
 
         // Ses & Kayıtlar
+        document.getElementById('ses-panel-kategori').value = a.ozelSesKategori || '';
         sesDurumuGuncelle(d.aktifSes);
         document.getElementById('ses-kayitlar-body').innerHTML = (d.kayitlar || []).map(k => `
             <tr><td><strong>🔊 ${esc(k.kanalAdi)}</strong></td><td>${esc(k.tarih)}</td><td>${k.sureSaniye} sn</td>
@@ -876,19 +1095,27 @@
             <td>${l.durum==='beklemede' ? `<button class="btn btn-success btn-sm" onclick="loaDurum('${l.id}','onaylandi')">✓ Onayla</button> <button class="btn btn-danger btn-sm" onclick="loaDurum('${l.id}','reddedildi')">✕ Reddet</button>` : esc(l.yetkili || '-')}</td></tr>
         `).join('') || '<tr><td colspan="5" style="color:var(--text-dim);">İzin talebi yok.</td></tr>';
 
-        // AutoMod
+        // AutoMod & Uyarılar
         document.getElementById('inp-kufurEngel').checked = !!a.automod?.kufurEngel;
         document.getElementById('inp-linkEngel').checked = !!a.automod?.linkEngel;
         document.getElementById('inp-capsEngel').checked = !!a.automod?.capsEngel;
         document.getElementById('inp-spamEngel').checked = !!a.automod?.spamEngel;
+        document.getElementById('inp-tekrarMesajEngel').checked = a.automod?.tekrarMesajEngel !== false;
         document.getElementById('inp-cezaAksiyonu').value = a.automod?.cezaAksiyonu || 'sil_uyar';
         document.getElementById('inp-timeoutDakika').value = a.automod?.timeoutDakika || 5;
         document.getElementById('inp-otoCezaEsik').value = a.automod?.otoCezaEsik || 3;
+        document.getElementById('inp-yeniHesapGun').value = a.automod?.yeniHesapKorumaGun || 0;
         document.getElementById('inp-muafRol').value = a.automod?.muafRol || '';
         geciciYasakliKelimeler = [...(a.automod?.yasakliKelimeler || [])];
         yasakliKelimeleriCiz();
 
+        document.getElementById('uyarilar-body').innerHTML = (a.uyarilar || []).slice(0, 30).map(u => `
+            <tr><td><strong>${esc(u.kullaniciTag)}</strong></td><td>${esc(u.sebep)}</td><td>${esc(u.yetkili)}</td>
+            <td><button class="btn btn-danger btn-sm" onclick="uyariSil('${u.id}')">Sil</button></td></tr>
+        `).join('') || '<tr><td colspan="4" style="color:var(--text-dim);">Kayıtlı uyarı yok.</td></tr>';
+
         // Loglar & Kartlar
+        document.getElementById('inp-modLogKanal').value = a.modLogKanal || '';
         document.getElementById('inp-sesLogKanal').value = a.sesLogKanal || '';
         document.getElementById('inp-girisCikisLogKanal').value = a.girisCikisLogKanal || '';
         document.getElementById('inp-otoRol').value = a.otoRol || '';
@@ -961,13 +1188,21 @@
             </div>`;
     }
     async function robloxRolleriYukle(y) {
-        const r = await apiFetch(`/api/roblox/roller/${currentGuildId}?yenile=${y?1:0}`);
-        document.getElementById('web-roblox-role').innerHTML = '<option value="">-- Seçin --</option>' + (r.roller||[]).filter(x=>x.rank>0&&x.rank<255).map(x=>`<option value="${x.id}">[${x.rank}] ${esc(x.name)}</option>`).join('');
-        toastGoster('Roblox rütbeleri yüklendi.');
+        try {
+            const r = await apiFetch(`/api/roblox/roller/${currentGuildId}?yenile=${y?1:0}`);
+            robloxRolDropdownDoldur(r.roller || []);
+            if (y) toastGoster('🔄 TSF Roblox rütbeleri güncellendi.');
+        } catch (e) {
+            robloxRolDropdownDoldur([]);
+            if (y) toastGoster('Roblox API yanıt vermedi, TSF listesi yüklendi.', true);
+        }
     }
     async function webPanelRutbeVer() {
-        const res = await apiFetch('/api/roblox/rutbe-ver', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, robloxKullaniciAdi: document.getElementById('web-roblox-user').value, hedefRolId: document.getElementById('web-roblox-role').value }) });
-        toastGoster('🎖️ ' + res.mesaj);
+        try {
+            const res = await apiFetch('/api/roblox/rutbe-ver', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, robloxKullaniciAdi: document.getElementById('web-roblox-user').value, hedefRolId: document.getElementById('web-roblox-role').value }) });
+            toastGoster('🎖️ ' + res.mesaj);
+            await panelVerileriniYukle();
+        } catch (e) { toastGoster(e.message, true); }
     }
 
     // AI
@@ -1019,7 +1254,7 @@
         document.getElementById('genel-modal').classList.add('open');
     }
 
-    // Ses & Özel Oda & AI Tutanak
+    // Ses & Özel Oda Paneli
     function sesDurumuGuncelle(s) {
         const a = !!s?.aktif;
         document.getElementById('nav-ses-badge').style.display = a ? 'inline-block' : 'none';
@@ -1070,6 +1305,18 @@
             document.getElementById('genel-modal').classList.add('open');
         } catch (e) { toastGoster(e.message, true); }
     }
+    async function sesOdasiPanelKur() {
+        try {
+            await apiFetch('/api/ses-odasi/panel-kur', { method:'POST', body: JSON.stringify({
+                guildId: currentGuildId,
+                kanalId: document.getElementById('ses-panel-kanal').value,
+                kategoriId: document.getElementById('ses-panel-kategori').value,
+                baslik: document.getElementById('ses-panel-baslik').value,
+                aciklama: document.getElementById('ses-panel-aciklama').value
+            }) });
+            toastGoster('✅ Özel Ses Odası oluşturma paneli metin kanalına kuruldu!');
+        } catch (e) { toastGoster(e.message, true); }
+    }
     async function ozelSesOdasiOlustur() {
         const uye = document.getElementById('oda-izinli-uye').value;
         const rol = document.getElementById('oda-izinli-rol').value;
@@ -1082,7 +1329,7 @@
         toastGoster(`🔊 ${r.odaAdi} oluşturuldu!`); await panelVerileriniYukle();
     }
 
-    // Nöbet, LOA, Operasyon, Duyuru, AutoMod, Tema, Denetim
+    // Nöbet, LOA, Operasyon, Duyuru, Moderasyon, AutoMod, Tema
     async function nobetSifirla() { await apiFetch(`/api/nobet/sifirla/${currentGuildId}`, { method:'POST' }); toastGoster('Nöbet süreleri sıfırlandı.'); await panelVerileriniYukle(); }
     async function loaDurum(id, durum) { await apiFetch(`/api/loa/${currentGuildId}/${id}/durum`, { method:'POST', body: JSON.stringify({ durum }) }); toastGoster('LOA güncellendi.'); await panelVerileriniYukle(); }
     async function operasyonOlustur() {
@@ -1093,23 +1340,48 @@
         await apiFetch('/api/duyuru', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, kanalId: document.getElementById('duyuru-kanal').value, baslik: document.getElementById('duyuru-baslik').value, icerik: document.getElementById('duyuru-icerik').value, gorselUrl: document.getElementById('duyuru-gorsel').value, renk: document.getElementById('duyuru-renk').value }) });
         toastGoster('📢 Duyuru gönderildi!');
     }
+    async function panelModerasyonUygula() {
+        try {
+            const res = await apiFetch('/api/moderasyon/islem', { method:'POST', body: JSON.stringify({
+                guildId: currentGuildId,
+                userId: document.getElementById('mod-hedef-uye').value,
+                tur: document.getElementById('mod-islem-tur').value,
+                dakika: Number(document.getElementById('mod-sure-dk').value) || 10,
+                sebep: document.getElementById('mod-sebep').value
+            }) });
+            toastGoster('⚖️ ' + res.mesaj);
+            await panelVerileriniYukle();
+        } catch (e) { toastGoster(e.message, true); }
+    }
+    async function uyariSil(id) { await apiFetch(`/api/uyari/${currentGuildId}/${id}`, { method:'DELETE' }); toastGoster('Uyarı silindi.'); await panelVerileriniYukle(); }
     function yasakliKelimeleriCiz() { document.getElementById('yasakli-kelimeler-cloud').innerHTML = geciciYasakliKelimeler.map((k,i)=>`<span class="word-tag">${esc(k)} <button onclick="geciciYasakliKelimeler.splice(${i},1);yasakliKelimeleriCiz()">×</button></span>`).join(''); }
     function yasakliKelimeEkle() { const k = document.getElementById('yeni-yasakli-kelime').value.trim().toLowerCase(); if (k && !geciciYasakliKelimeler.includes(k)) { geciciYasakliKelimeler.push(k); yasakliKelimeleriCiz(); } document.getElementById('yeni-yasakli-kelime').value = ''; }
     function automodAyarKaydet() {
         ayarKaydet({ automod: {
-            kufurEngel: document.getElementById('inp-kufurEngel').checked, linkEngel: document.getElementById('inp-linkEngel').checked,
-            capsEngel: document.getElementById('inp-capsEngel').checked, spamEngel: document.getElementById('inp-spamEngel').checked,
-            cezaAksiyonu: document.getElementById('inp-cezaAksiyonu').value, timeoutDakika: Number(document.getElementById('inp-timeoutDakika').value)||5,
-            otoCezaEsik: Number(document.getElementById('inp-otoCezaEsik').value)||3, muafRol: document.getElementById('inp-muafRol').value,
+            kufurEngel: document.getElementById('inp-kufurEngel').checked,
+            linkEngel: document.getElementById('inp-linkEngel').checked,
+            capsEngel: document.getElementById('inp-capsEngel').checked,
+            spamEngel: document.getElementById('inp-spamEngel').checked,
+            tekrarMesajEngel: document.getElementById('inp-tekrarMesajEngel').checked,
+            cezaAksiyonu: document.getElementById('inp-cezaAksiyonu').value,
+            timeoutDakika: Number(document.getElementById('inp-timeoutDakika').value)||5,
+            otoCezaEsik: Number(document.getElementById('inp-otoCezaEsik').value)||3,
+            yeniHesapKorumaGun: Number(document.getElementById('inp-yeniHesapGun').value)||0,
+            muafRol: document.getElementById('inp-muafRol').value,
             yasakliKelimeler: geciciYasakliKelimeler
-        }}, 'AutoMod ve ceza kuralları kaydedildi.');
+        }}, 'Moderasyon ve AutoMod kuralları kaydedildi.');
     }
     function logVeKartKaydet() {
         ayarKaydet({
-            sesLogKanal: document.getElementById('inp-sesLogKanal').value, girisCikisLogKanal: document.getElementById('inp-girisCikisLogKanal').value,
-            otoRol: document.getElementById('inp-otoRol').value, girisBaslik: document.getElementById('inp-girisBaslik').value,
-            girisRenk: document.getElementById('inp-girisRenk').value, girisMesaj: document.getElementById('inp-girisMesaj').value,
-            girisArkaPlanUrl: document.getElementById('inp-girisArkaPlanUrl').value, cikisArkaPlanUrl: document.getElementById('inp-cikisArkaPlanUrl').value,
+            modLogKanal: document.getElementById('inp-modLogKanal').value,
+            sesLogKanal: document.getElementById('inp-sesLogKanal').value,
+            girisCikisLogKanal: document.getElementById('inp-girisCikisLogKanal').value,
+            otoRol: document.getElementById('inp-otoRol').value,
+            girisBaslik: document.getElementById('inp-girisBaslik').value,
+            girisRenk: document.getElementById('inp-girisRenk').value,
+            girisMesaj: document.getElementById('inp-girisMesaj').value,
+            girisArkaPlanUrl: document.getElementById('inp-girisArkaPlanUrl').value,
+            cikisArkaPlanUrl: document.getElementById('inp-cikisArkaPlanUrl').value,
             leveling: { ...(panelData?.ayarlar?.leveling||{}), seviyeKanal: document.getElementById('inp-seviyeKanal').value }
         }, 'Kart ve log ayarları kaydedildi.');
     }
