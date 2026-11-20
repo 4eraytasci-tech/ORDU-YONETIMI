@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
@@ -30,158 +29,40 @@
         ::-webkit-scrollbar-track { background: var(--bg-main); }
         ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
 
-        /* GELİŞMİŞ KOMUTA GİRİŞ EKRANI */
+        /* GİRİŞ EKRANI */
         #login-screen {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background:
-                radial-gradient(circle at 18% 20%, rgba(59, 130, 246, 0.18), transparent 42%),
-                radial-gradient(circle at 82% 80%, rgba(16, 185, 129, 0.14), transparent 42%),
-                linear-gradient(180deg, #070a11 0%, #0b101b 100%);
-            padding: 24px;
-            position: relative;
+            min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; position: relative;
+            background: radial-gradient(circle at 18% 20%, rgba(59,130,246,0.18), transparent 42%),
+                        radial-gradient(circle at 82% 80%, rgba(16,185,129,0.14), transparent 42%),
+                        linear-gradient(180deg, #070a11 0%, #0b101b 100%);
         }
         #login-screen::before {
-            content: "";
-            position: absolute;
-            inset: 0;
+            content: ""; position: absolute; inset: 0; pointer-events: none;
             background-image: linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
                               linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
             background-size: 40px 40px;
-            pointer-events: none;
         }
         .login-shell {
-            position: relative;
-            z-index: 2;
-            max-width: 920px;
-            width: 100%;
-            display: grid;
-            grid-template-columns: 1.1fr 0.9fr;
-            background: rgba(19, 27, 43, 0.92);
-            backdrop-filter: blur(18px);
-            border: 1px solid rgba(59, 130, 246, 0.25);
-            border-radius: 22px;
-            overflow: hidden;
-            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.65);
+            position: relative; z-index: 2; max-width: 920px; width: 100%; display: grid; grid-template-columns: 1.1fr 0.9fr;
+            background: rgba(19,27,43,0.92); backdrop-filter: blur(18px); border: 1px solid rgba(59,130,246,0.25);
+            border-radius: 22px; overflow: hidden; box-shadow: 0 25px 70px rgba(0,0,0,0.65);
         }
-        .login-left {
-            padding: 44px 40px;
-            background: linear-gradient(145deg, rgba(30, 58, 138, 0.28), rgba(15, 23, 42, 0.6));
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-        .login-status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            width: fit-content;
-            background: rgba(16, 185, 129, 0.12);
-            color: #34d399;
-            border: 1px solid rgba(16, 185, 129, 0.32);
-            padding: 6px 14px;
-            border-radius: 999px;
-            font-size: 11.5px;
-            font-weight: 700;
-            letter-spacing: 0.6px;
-            margin-bottom: 22px;
-        }
-        .pulse-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #10b981;
-            box-shadow: 0 0 10px #10b981;
-        }
-        .login-left h1 {
-            font-size: 30px;
-            font-weight: 800;
-            letter-spacing: 0.4px;
-            line-height: 1.2;
-            margin-bottom: 12px;
-        }
-        .login-left p {
-            color: var(--text-muted);
-            font-size: 14px;
-            line-height: 1.65;
-            margin-bottom: 24px;
-        }
-        .login-grid-features {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-        .login-feat {
-            background: rgba(9, 13, 22, 0.65);
-            border: 1px solid var(--border);
-            border-radius: 11px;
-            padding: 11px 13px;
-            font-size: 12.5px;
-            color: #cbd5e1;
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            font-weight: 600;
-        }
-        .login-right {
-            padding: 44px 36px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            text-align: center;
-        }
-        .login-emblem {
-            width: 74px;
-            height: 74px;
-            margin: 0 auto 18px;
-            border-radius: 20px;
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 36px;
-            box-shadow: 0 12px 28px rgba(37, 99, 235, 0.35);
-        }
+        .login-left { padding: 44px 40px; background: linear-gradient(145deg, rgba(30,58,138,0.28), rgba(15,23,42,0.6)); border-right: 1px solid var(--border); display: flex; flex-direction: column; justify-content: space-between; }
+        .login-status-pill { display: inline-flex; align-items: center; gap: 8px; width: fit-content; background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.32); padding: 6px 14px; border-radius: 999px; font-size: 11.5px; font-weight: 700; margin-bottom: 22px; }
+        .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 10px #10b981; }
+        .login-left h1 { font-size: 30px; font-weight: 800; line-height: 1.2; margin-bottom: 12px; }
+        .login-left p { color: var(--text-muted); font-size: 14px; line-height: 1.65; margin-bottom: 24px; }
+        .login-grid-features { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .login-feat { background: rgba(9,13,22,0.65); border: 1px solid var(--border); border-radius: 11px; padding: 11px 13px; font-size: 12.5px; color: #cbd5e1; display: flex; align-items: center; gap: 9px; font-weight: 600; }
+        .login-right { padding: 44px 36px; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+        .login-emblem { width: 74px; height: 74px; margin: 0 auto 18px; border-radius: 20px; background: linear-gradient(135deg, #2563eb, #1d4ed8); display: flex; align-items: center; justify-content: center; font-size: 36px; box-shadow: 0 12px 28px rgba(37,99,235,0.35); }
         .login-right h2 { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
         .login-right small { color: var(--text-muted); font-size: 13px; display: block; margin-bottom: 24px; line-height: 1.5; }
         .auth-alert { display: none; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.45); color: #fca5a5; padding: 11px; border-radius: 10px; font-size: 12.5px; text-align: left; margin-bottom: 16px; }
-        .btn-discord {
-            width: 100%;
-            background: linear-gradient(135deg, #5865F2, #4752c4);
-            color: #fff;
-            border: none;
-            padding: 14px 18px;
-            border-radius: 12px;
-            font-size: 14.5px;
-            font-weight: 700;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            text-decoration: none;
-            margin-bottom: 12px;
-            transition: transform 0.15s, box-shadow 0.15s;
-        }
-        .btn-discord:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(88, 101, 242, 0.38); }
-        .btn-local-login {
-            width: 100%;
-            background: rgba(16, 185, 129, 0.12);
-            color: #34d399;
-            border: 1px solid rgba(16, 185, 129, 0.32);
-            padding: 12px;
-            border-radius: 12px;
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-        .btn-local-login:hover { background: rgba(16, 185, 129, 0.22); }
+        .btn-discord { width: 100%; background: linear-gradient(135deg, #5865F2, #4752c4); color: #fff; border: none; padding: 14px 18px; border-radius: 12px; font-size: 14.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; margin-bottom: 12px; }
+        .btn-local-login { width: 100%; background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.32); padding: 12px; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; }
 
-        /* ANA PANEL LAYOUT */
+        /* ANA PANEL */
         #app-layout { display: none; min-height: 100vh; }
         .sidebar { width: 270px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; z-index: 100; transition: transform 0.25s; }
         .sidebar-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
@@ -192,7 +73,7 @@
         .guild-selector-box label { display: block; font-size: 10.5px; text-transform: uppercase; color: var(--text-dim); font-weight: 700; margin-bottom: 6px; }
         .nav-menu { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 3px; }
         .nav-section-title { font-size: 10px; text-transform: uppercase; color: var(--text-dim); font-weight: 700; padding: 10px 10px 4px; }
-        .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 9px; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; background: transparent; width: 100%; text-align: left; }
+        .nav-item { display: flex; align-items: center; gap: 10px; padding: 9.5px 12px; border-radius: 9px; color: var(--text-muted); font-size: 12.8px; font-weight: 600; cursor: pointer; border: 1px solid transparent; background: transparent; width: 100%; text-align: left; }
         .nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text-main); }
         .nav-item.active { background: rgba(59,130,246,0.16); color: var(--primary); border-color: rgba(59,130,246,0.35); }
         .nav-badge { margin-left: auto; font-size: 10px; padding: 2px 7px; border-radius: 999px; background: rgba(16,185,129,0.16); color: var(--accent); font-weight: 700; }
@@ -235,7 +116,7 @@
         .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
         .form-control { width: 100%; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-main); padding: 9px 12px; border-radius: 8px; font-size: 13px; outline: none; }
         .form-control:focus { border-color: var(--primary); }
-        textarea.form-control { resize: vertical; min-height: 80px; }
+        textarea.form-control { resize: vertical; min-height: 75px; }
 
         .switch-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 13px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 9px; margin-bottom: 9px; gap: 12px; }
         .switch-row-info strong { display: block; font-size: 13px; }
@@ -274,7 +155,6 @@
 
         .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; max-height: 180px; overflow-y: auto; padding: 10px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; }
         .checkbox-item { display: flex; align-items: center; gap: 7px; font-size: 12.5px; cursor: pointer; }
-
         .speaker-grid { display: flex; flex-wrap: wrap; gap: 8px; min-height: 48px; padding: 10px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 9px; }
         .speaker-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: rgba(16,185,129,0.18); border: 1px solid var(--accent); font-size: 12.5px; font-weight: 700; }
 
@@ -309,13 +189,13 @@
             <div>
                 <div class="login-status-pill"><span class="pulse-dot"></span> TSF KOMUTA AĞI • ÇEVRİMİÇİ</div>
                 <h1>ORDU YÖNETİMİ<br>Komuta & Kontrol Merkezi</h1>
-                <p>TSF Roblox rütbe senkronizasyonu, yetkili karneli destek biletleri, rol farkındalıklı yapay zeka asistanı, canlı ses stüdyosu ve gelişmiş disiplin moderasyonu tek panelde.</p>
+                <p>TSF Roblox rütbe ve /update senkronizasyonu, AI moderasyon, özel komutlar, şartlı çekilişler, yetkili karneli biletler, ses kaydı ve canlı telsiz anonsu tek merkezde.</p>
             </div>
             <div class="login-grid-features">
-                <div class="login-feat">🎖️ TSF Rütbe & Sicil</div>
-                <div class="login-feat">🎫 Ticket & Yetkili Karnesi</div>
-                <div class="login-feat">🎙️ Ses Odası & WAV Kayıt</div>
-                <div class="login-feat">🛡️ Gelişmiş AutoMod</div>
+                <div class="login-feat">🎖️ TSF Rütbe & /update</div>
+                <div class="login-feat">🤖 AI Moderasyon & !Komut</div>
+                <div class="login-feat">🎙️ Ses Kayıt & Canlı TTS</div>
+                <div class="login-feat">🎉 Şartlı Çekiliş & Sınav</div>
             </div>
         </div>
         <div class="login-right">
@@ -323,10 +203,7 @@
             <h2>Yetkili Girişi</h2>
             <small>Yönetici yetkisine sahip olduğunuz sunucuları kontrol etmek için Discord hesabınızla oturum açın.</small>
             <div id="auth-error-box" class="auth-alert"></div>
-            <a href="/auth/discord" class="btn-discord">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028z"/></svg>
-                Discord ile Komuta Paneline Gir
-            </a>
+            <a href="/auth/discord" class="btn-discord">Discord ile Komuta Paneline Gir</a>
             <button type="button" class="btn-local-login" onclick="yerelKomutaGirisi()">⚡ Yerel Komuta Girişi (Localhost)</button>
         </div>
     </div>
@@ -343,26 +220,27 @@
             </div>
         </div>
         <div class="guild-selector-box">
-            <label>Yönetilen Sunucu (Çoklu Sunucu)</label>
+            <label>Yönetilen Sunucu</label>
             <select id="guild-select" class="form-control" onchange="sunucuDegistir(this.value)"></select>
         </div>
         <nav class="nav-menu">
             <div class="nav-section-title">Komuta Merkezi</div>
             <button class="nav-item active" data-tab="genel" onclick="sekmeAc('genel', this)">📊 Genel Bakış & Terfi</button>
-            <button class="nav-item" data-tab="rutbe" onclick="sekmeAc('rutbe', this)">🎖️ TSF Rütbe & Sicil <span class="nav-badge">TSF</span></button>
-            <button class="nav-item" data-tab="ai" onclick="sekmeAc('ai', this)">🤖 Gelişmiş Yapay Zeka</button>
+            <button class="nav-item" data-tab="rutbe" onclick="sekmeAc('rutbe', this)">🎖️ Rütbe, Sicil & Sınav <span class="nav-badge">TSF</span></button>
+            <button class="nav-item" data-tab="ai" onclick="sekmeAc('ai', this)">🤖 Yapay Zeka & !Komutlar</button>
 
             <div class="nav-section-title">Destek & Operasyon</div>
-            <button class="nav-item" data-tab="ticket" onclick="sekmeAc('ticket', this)">🎫 Ticket & Yetkili Karnesi</button>
-            <button class="nav-item" data-tab="ses" onclick="sekmeAc('ses', this)">🎙️ Ses Dinleme & Özel Oda <span id="nav-ses-badge" class="nav-badge" style="display:none;">CANLI</span></button>
+            <button class="nav-item" data-tab="ticket" onclick="sekmeAc('ticket', this)">🎫 Ticket (.PNG) & Karne</button>
+            <button class="nav-item" data-tab="ses" onclick="sekmeAc('ses', this)">🎙️ Ses, Arşiv & TTS Anons <span id="nav-ses-badge" class="nav-badge" style="display:none;">CANLI</span></button>
+            <button class="nav-item" data-tab="cekilis" onclick="sekmeAc('cekilis', this)">🎉 Çekiliş Sistemi</button>
             <button class="nav-item" data-tab="operasyon" onclick="sekmeAc('operasyon', this)">🎯 Nöbet, LOA & Operasyon</button>
             <button class="nav-item" data-tab="duyuru" onclick="sekmeAc('duyuru', this)">📢 Duyuru Stüdyosu</button>
 
-            <div class="nav-section-title">Güvenlik & Özelleştirme</div>
-            <button class="nav-item" data-tab="automod" onclick="sekmeAc('automod', this)">🛡️ Moderasyon & AutoMod</button>
+            <div class="nav-section-title">Güvenlik & Ayarlar</div>
+            <button class="nav-item" data-tab="automod" onclick="sekmeAc('automod', this)">🛡️ AI Mod, Uyarı & Kara Liste</button>
             <button class="nav-item" data-tab="loglar" onclick="sekmeAc('loglar', this)">🖼️ Kartlar, Loglar & XP</button>
             <button class="nav-item" data-tab="tema" onclick="sekmeAc('tema', this)">🎨 Tema & Modül Yönetimi</button>
-            <button class="nav-item" data-tab="denetim" onclick="sekmeAc('denetim', this)">⚖️ Komuta Logları & Sicil</button>
+            <button class="nav-item" data-tab="denetim" onclick="sekmeAc('denetim', this)">⚖️ Komuta Logları</button>
         </nav>
         <div class="sidebar-footer">
             <div class="user-mini">
@@ -390,51 +268,60 @@
 
         <main class="content-area">
 
-            <!-- 1. GENEL BAKIŞ & TERFİ ÖNERİLERİ -->
+            <!-- 1. GENEL BAKIŞ -->
             <section id="tab-genel" class="tab-section active">
                 <div class="page-header">
-                    <div><h1>📊 Komuta Merkezi — Genel Bakış</h1><p>Anlık sunucu verileri, bilet memnuniyet oranı ve otomatik terfi önerileri.</p></div>
+                    <div><h1>📊 Komuta Merkezi — Genel Bakış</h1><p>Anlık sunucu verileri, sistem tanısı ve otomatik terfi önerileri.</p></div>
                 </div>
                 <div class="stats-grid">
                     <div class="stat-card"><div class="stat-info"><span>TOPLAM PERSONEL</span><h3 id="stat-uye">0</h3><small id="stat-cevrimici">0 çevrimiçi</small></div><div class="stat-icon" style="background:rgba(59,130,246,0.15);color:#60a5fa;">👥</div></div>
                     <div class="stat-card"><div class="stat-info"><span>BİLET MEMNUNİYETİ</span><h3 id="stat-memnuniyet">%0</h3><small id="stat-puan">0.0 ★ Ortalama</small></div><div class="stat-icon" style="background:rgba(245,158,11,0.15);color:#fbbf24;">⭐</div></div>
-                    <div class="stat-card"><div class="stat-info"><span>AÇIK / KAPALI BİLET</span><h3 id="stat-bilet">0 / 0</h3><small>Canlı Bilet Takibi</small></div><div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#34d399;">🎫</div></div>
-                    <div class="stat-card"><div class="stat-info"><span>BOT ÇALIŞMA SÜRESİ</span><h3 id="stat-uptime">0d</h3><small>Çoklu Sunucu Aktif</small></div><div class="stat-icon" style="background:rgba(139,92,246,0.15);color:#a78bfa;">⚡</div></div>
+                    <div class="stat-card"><div class="stat-info"><span>SES MOTORU / BULUT</span><h3 id="stat-opus" style="font-size:17px;">-</h3><small id="stat-bulut">Yerel Disk</small></div><div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#34d399;">🎙️</div></div>
+                    <div class="stat-card"><div class="stat-info"><span>BOT ÇALIŞMA SÜRESİ</span><h3 id="stat-uptime">0d</h3><small id="stat-bilet">0 Açık / 0 Kapalı Bilet</small></div><div class="stat-icon" style="background:rgba(139,92,246,0.15);color:#a78bfa;">⚡</div></div>
                 </div>
                 <div class="card">
-                    <div class="card-header"><h3>📈 Otomatik Terfi Önerileri (0 Uyarı + Yüksek Aktiflik/Nöbet)</h3></div>
+                    <div class="card-header"><h3>📈 Otomatik Terfi Önerileri (0 Uyarı + Aktiflik/Nöbet)</h3></div>
                     <div class="table-responsive">
                         <table>
                             <thead><tr><th>Personel</th><th>Mevcut Rütbe</th><th>Önerilen Yeni Rütbe</th><th>Seviye</th><th>Haftalık Nöbet</th></tr></thead>
-                            <tbody id="terfi-onerileri-body"><tr><td colspan="5" style="color:var(--text-dim);">Henüz terfi şartını dolduran personel yok.</td></tr></tbody>
+                            <tbody id="terfi-onerileri-body"></tbody>
                         </table>
                     </div>
                 </div>
             </section>
 
-            <!-- 2. TSF RÜTBE HİYERARŞİSİ, ROBLOX & TEK TIKLA SİCİL -->
+            <!-- 2. RÜTBE, SİCİL, MADALYA & SINAV -->
             <section id="tab-rutbe" class="tab-section">
                 <div class="page-header">
-                    <div><h1>🎖️ TSF Rütbe Hiyerarşisi, Roblox & Personel Sicil</h1><p>Düzeltilmiş TSF rütbe listesini sıralayın, Roblox terfisi yapın veya tek tıkla personel sicilini sorgulayın.</p></div>
-                    <button class="btn btn-success" onclick="rutbeAyarKaydet()">💾 Rütbe & Hiyerarşi Kaydet</button>
+                    <div><h1>🎖️ TSF Rütbe, Sicil, Madalya & Terfi Sınavı</h1><p>Rütbe atamaları Roblox grubunu günceller; Discord rolleri <code>/update</code> ile eşitlenir (kendi rolünden üst rütbe verilemez).</p></div>
+                    <button class="btn btn-success" onclick="rutbeAyarKaydet()">💾 Rütbe & Sınav Ayarlarını Kaydet</button>
                 </div>
 
                 <div class="grid-2">
                     <div class="card">
-                        <div class="card-header"><h3>🪪 Tek Tıkla "Kimdir / Sicil" Sorgusu</h3></div>
-                        <div style="display:flex; gap:8px; margin-bottom:14px;">
+                        <div class="card-header"><h3>🪪 Tek Tıkla Sicil, Madalya & Disiplin Yönetimi</h3></div>
+                        <div style="display:flex; gap:8px; margin-bottom:12px;">
                             <select id="sicil-uye-select" class="form-control member-select"></select>
                             <button class="btn btn-primary" onclick="sicilSorgula()">🔍 Sorgula</button>
                         </div>
-                        <div id="sicil-kart-alani" style="background:var(--bg-input); border:1px solid var(--border); border-radius:10px; padding:14px; font-size:13px; color:var(--text-muted);">
+                        <div id="sicil-kart-alani" style="background:var(--bg-input); border:1px solid var(--border); border-radius:10px; padding:14px; font-size:13px; color:var(--text-muted); margin-bottom:14px;">
                             Personel seçip "Sorgula" butonuna tıklayın.
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr auto; gap:8px; margin-bottom:8px;">
+                            <input type="text" id="madalya-ad" class="form-control" placeholder="Madalya / Bröve (Örn: Üstün Hizmet Madalyası)">
+                            <button class="btn btn-warning btn-sm" onclick="madalyaVerUI()">🏅 Madalya Ver</button>
+                        </div>
+                        <div style="display:grid; grid-template-columns:120px 1fr auto; gap:8px;">
+                            <select id="disiplin-tur" class="form-control"><option>Kınama</option><option>Gözaltı</option><option>Rütbe Tenzili</option></select>
+                            <input type="text" id="disiplin-sebep" class="form-control" placeholder="İnzibat / disiplin sebebi">
+                            <button class="btn btn-danger btn-sm" onclick="disiplinEkleUI()">⚖️ İşle</button>
                         </div>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <h3>⚡ Roblox & Discord Rütbe Ver (TSF)</h3>
-                            <button class="btn btn-secondary btn-sm" onclick="robloxRolleriYukle(true)">🔄 Rütbeleri Yenile</button>
+                            <h3>⚡ Roblox Rütbe Ver (TSF)</h3>
+                            <button class="btn btn-secondary btn-sm" onclick="robloxRolleriYukle(true)">🔄 Yenile</button>
                         </div>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                             <div class="form-group"><label>Roblox Grup ID</label><input type="text" id="inp-robloxGrupId" class="form-control"></div>
@@ -442,15 +329,22 @@
                         </div>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                             <div class="form-group"><label>Roblox Kullanıcı Adı</label><input type="text" id="web-roblox-user" class="form-control" placeholder="Örn: ERAYKRALHD"></div>
-                            <div class="form-group"><label>Verilecek Rütbe</label><select id="web-roblox-role" class="form-control"><option value="">-- Rütbeler Yükleniyor --</option></select></div>
+                            <div class="form-group"><label>Verilecek Rütbe</label><select id="web-roblox-role" class="form-control"></select></div>
                         </div>
-                        <button class="btn btn-primary" onclick="webPanelRutbeVer()">🎖️ Rütbeyi Ver & Eşitle</button>
+                        <button class="btn btn-primary" onclick="webPanelRutbeVer()">🎖️ Roblox Rütbesini Ver (Discord için /update)</button>
+
+                        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+                        <h4 style="font-size:13.5px; margin-bottom:10px;">📝 Acemi Eğitimi Otomatik Terfi Sınavı (<code>/sınav baslat</code>)</h4>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <div class="form-group"><label>Geçme Barajı (%)</label><input type="number" id="inp-sinavBaraj" class="form-control" min="20" max="100" value="80"></div>
+                            <div class="form-group"><label>Geçince Verilecek Rütbe</label><input type="text" id="inp-sinavHedef" class="form-control" value="[Or-2] Onbaşı"></div>
+                        </div>
                     </div>
                 </div>
 
                 <div class="card">
                     <div class="card-header">
-                        <h3>📋 TSF Rütbe Hiyerarşisi Yönetimi (Yukarı / Aşağı Sıralama)</h3>
+                        <h3>📋 TSF Rütbe Hiyerarşisi (Yukarı / Aşağı Sıralama)</h3>
                         <div style="display:flex; gap:8px;">
                             <input type="text" id="yeni-rutbe-ad" class="form-control" style="width:200px;" placeholder="Yeni rütbe adı">
                             <select id="yeni-rutbe-sinif" class="form-control" style="width:170px;">
@@ -461,100 +355,116 @@
                             <button class="btn btn-primary btn-sm" onclick="rutbeEkle()">+ Ekle</button>
                         </div>
                     </div>
-                    <div class="table-responsive" style="max-height:380px; overflow-y:auto;">
+                    <div class="table-responsive" style="max-height:340px; overflow-y:auto;">
                         <table>
-                            <thead><tr><th>Sıra</th><th>Rütbe Adı</th><th>Sınıf</th><th>Sıralama / İşlem</th></tr></thead>
+                            <thead><tr><th>Sıra</th><th>Rütbe Adı</th><th>Sınıf</th><th>Sıralama / Sil</th></tr></thead>
                             <tbody id="tsf-rutbe-body"></tbody>
                         </table>
                     </div>
                 </div>
             </section>
 
-            <!-- 3. GELİŞMİŞ YAPAY ZEKA -->
+            <!-- 3. YAPAY ZEKA & ÖZEL KOMUTLAR (!XXXXX) -->
             <section id="tab-ai" class="tab-section">
                 <div class="page-header">
-                    <div><h1>🤖 Gelişmiş Yapay Zeka (AI) & Rol Farkındalığı</h1><p>Kanal kısıtlaması, son N mesaj sohbet bağlamı ve otomatik TSF rütbe/kimlik sorgulama.</p></div>
-                    <button class="btn btn-success" onclick="aiAyarKaydet()">💾 AI Ayarlarını Kaydet</button>
-                </div>
-                <div class="grid-2">
-                    <div class="card">
-                        <div class="card-header"><h3>🧠 AI Kısıtlama & Bağlam Ayarları</h3></div>
-                        <div class="switch-row">
-                            <div class="switch-row-info"><strong>AI Sohbet Sistemi Aktif</strong><span>Bot @etiketlendiğinde bağlam ve rütbe farkındalığıyla yanıt verir</span></div>
-                            <label class="toggle-switch"><input type="checkbox" id="inp-aiAktif"><span class="toggle-slider"></span></label>
-                        </div>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                            <div class="form-group"><label>Komut Ön Eki (Prefix)</label><input type="text" id="inp-prefix" class="form-control" maxlength="5"></div>
-                            <div class="form-group"><label>Okunacak Sohbet Bağlamı (Son N Mesaj)</label><input type="number" id="inp-aiBaglam" class="form-control" min="1" max="25" value="10"></div>
-                        </div>
-                        <div class="form-group">
-                            <label>İzinli AI Kanalları (Hiçbiri seçilmezse tüm kanallarda çalışır)</label>
-                            <div id="ai-kanallar-grid" class="checkbox-grid"></div>
-                        </div>
-                        <div class="form-group">
-                            <label>Sistem Talimatı (System Prompt)</label>
-                            <textarea id="inp-aiSistemTalimati" class="form-control" rows="4"></textarea>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-header"><h3>🧪 Canlı AI Test Konsolu</h3></div>
-                        <div class="form-group"><label>Test Sorusu</label><input type="text" id="ai-test-soru" class="form-control" placeholder="Örn: TSF rütbe sistemi hakkında bilgi ver"></div>
-                        <button class="btn btn-primary" onclick="aiTestEt()">🚀 AI'a Sor</button>
-                        <div id="ai-test-cevap" style="margin-top:14px; background:var(--bg-input); border:1px solid var(--border); border-radius:9px; padding:14px; min-height:150px; font-size:13px; white-space:pre-wrap;">Henüz test yapılmadı...</div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 4. TICKET, DEĞERLENDİRME & YETKİLİ KARNESİ -->
-            <section id="tab-ticket" class="tab-section">
-                <div class="page-header">
-                    <div><h1>🎫 Destek Bileti, Değerlendirme & Yetkili Karnesi</h1><p>1–5 ★ puanlama, yetkili performansı, açık/kapalı tüm bilet dökümleri ve panel kurulumu.</p></div>
-                    <button class="btn btn-success" onclick="ticketAyarKaydet()">💾 Ticket Ayarlarını Kaydet</button>
-                </div>
-
-                <div class="stats-grid">
-                    <div class="stat-card"><div class="stat-info"><span>TOPLAM BİLET</span><h3 id="t-stat-toplam">0</h3><small id="t-stat-dagilim">0 Açık • 0 Kapalı</small></div><div class="stat-icon" style="background:rgba(59,130,246,0.15);color:#60a5fa;">🎫</div></div>
-                    <div class="stat-card"><div class="stat-info"><span>ORTALAMA YILDIZ</span><h3 id="t-stat-puan">0.0 ★</h3><small>1–5 ★ Kullanıcı Puanı</small></div><div class="stat-icon" style="background:rgba(245,158,11,0.15);color:#fbbf24;">⭐</div></div>
-                    <div class="stat-card"><div class="stat-info"><span>MEMNUNİYET ORANI</span><h3 id="t-stat-memnun">%0</h3><small>4–5 ★ Veren Kullanıcılar</small></div><div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#34d399;">💚</div></div>
+                    <div><h1>🤖 Akıllı Yapay Zeka & Özel Komutlar (!XXXXX)</h1><p>Tam rütbe listesi & doğru Başkomutan/rol algılamalı AI + istediğiniz <code>!komut</code> yazılınca mesaj/URL döndüren sistem.</p></div>
+                    <button class="btn btn-success" onclick="aiVeKomutKaydet()">💾 AI & Özel Komutları Kaydet</button>
                 </div>
 
                 <div class="card">
-                    <div class="card-header"><h3>🏅 Yetkili Performans Karnesi</h3></div>
+                    <div class="card-header"><h3>⚡ Özel Komut & Otomatik Yanıt Oluştur (!XXXXX → Mesaj / URL / Buton)</h3></div>
+                    <div style="display:grid; grid-template-columns:1fr 2fr 1.5fr; gap:10px; margin-bottom:10px;">
+                        <div class="form-group" style="margin:0;"><label>Komut (! olmadan yazın)</label><input type="text" id="ok-tetikleyici" class="form-control" placeholder="Örn: grup veya tuzuk"></div>
+                        <div class="form-group" style="margin:0;"><label>Botun Vereceği Cevap Metni</label><input type="text" id="ok-cevap" class="form-control" placeholder="Örn: Resmi Roblox grubumuza katılın!"></div>
+                        <div class="form-group" style="margin:0;"><label>URL / Link (Opsiyonel)</label><input type="text" id="ok-url" class="form-control" placeholder="https://..."></div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr 120px auto; gap:10px; align-items:end; margin-bottom:14px;">
+                        <div class="form-group" style="margin:0;"><label>Buton Yazısı (URL varsa)</label><input type="text" id="ok-buton" class="form-control" placeholder="🔗 Bağlantıya Git"></div>
+                        <div class="form-group" style="margin:0;"><label>Görsel URL veya PNG Yükle</label><input type="text" id="ok-gorsel" class="form-control" placeholder="https://... veya boş"></div>
+                        <div class="form-group" style="margin:0;"><label>Embed?</label><select id="ok-embed" class="form-control"><option value="1">Embed Kart</option><option value="0">Düz Mesaj</option></select></div>
+                        <button class="btn btn-primary" onclick="ozelKomutEkle()">+ Komut Ekle</button>
+                    </div>
                     <div class="table-responsive">
                         <table>
-                            <thead><tr><th>Yetkili</th><th>Çözülen Bilet</th><th>Ortalama Puan</th><th>Son Kullanıcı Yorumları</th></tr></thead>
-                            <tbody id="yetkili-karnesi-body"><tr><td colspan="4" style="color:var(--text-dim);">Henüz değerlendirilmiş bilet yok.</td></tr></tbody>
+                            <thead><tr><th>Tetikleyici</th><th>Yanıt Metni</th><th>URL / Buton</th><th>Tip</th><th>Sil</th></tr></thead>
+                            <tbody id="ozel-komutlar-body"></tbody>
                         </table>
                     </div>
                 </div>
 
                 <div class="grid-2">
                     <div class="card">
-                        <div class="card-header"><h3>🟢 Açık Destek Biletleri (Canlı Takip)</h3></div>
-                        <div class="table-responsive">
-                            <table>
-                                <thead><tr><th>Kanal</th><th>Sahip / Konu</th><th>Üstlenen</th><th>İşlem</th></tr></thead>
-                                <tbody id="acik-biletler-body"><tr><td colspan="4" style="color:var(--text-dim);">Şu an açık bilet yok.</td></tr></tbody>
-                            </table>
+                        <div class="card-header"><h3>🧠 AI Kısıtlama & Bağlam Ayarları</h3></div>
+                        <div class="switch-row">
+                            <div class="switch-row-info"><strong>AI Sohbet Sistemi Aktif</strong><span>Bot @etiketlendiğinde bağlam ve doğru rütbe/rol okuma ile yanıt verir</span></div>
+                            <label class="toggle-switch"><input type="checkbox" id="inp-aiAktif"><span class="toggle-slider"></span></label>
                         </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <div class="form-group"><label>Komut Ön Eki (Prefix)</label><input type="text" id="inp-prefix" class="form-control" maxlength="5"></div>
+                            <div class="form-group"><label>Okunacak Sohbet Bağlamı (Son N Mesaj)</label><input type="number" id="inp-aiBaglam" class="form-control" min="1" max="25" value="10"></div>
+                        </div>
+                        <div class="form-group"><label>İzinli AI Kanalları (Boş bırakılırsa tüm kanallar)</label><div id="ai-kanallar-grid" class="checkbox-grid"></div></div>
+                        <div class="form-group"><label>Sistem Talimatı</label><textarea id="inp-aiSistemTalimati" class="form-control" rows="3"></textarea></div>
                     </div>
                     <div class="card">
-                        <div class="card-header"><h3>⚙️ Ticket Paneli Kurulum & Ayarlar</h3></div>
+                        <div class="card-header"><h3>🧪 Canlı AI Test Konsolu</h3></div>
+                        <div class="form-group"><label>Test Sorusu</label><input type="text" id="ai-test-soru" class="form-control" placeholder="Örn: TSF rütbe listesini sırasıyla yaz"></div>
+                        <button class="btn btn-primary" onclick="aiTestEt()">🚀 AI'a Sor</button>
+                        <div id="ai-test-cevap" style="margin-top:14px; background:var(--bg-input); border:1px solid var(--border); border-radius:9px; padding:14px; min-height:150px; font-size:13px; white-space:pre-wrap;">Henüz test yapılmadı...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. TICKET (.PNG YÜKLEME) & YETKİLİ KARNESİ -->
+            <section id="tab-ticket" class="tab-section">
+                <div class="page-header">
+                    <div><h1>🎫 Destek Bileti (.PNG Görsel Desteği) & Yetkili Karnesi</h1><p>Ticket paneline bilgisayardan doğrudan <code>.png/.jpg</code> görsel yükleyin, 1–5 ★ puan ve yetkili karnesini takip edin.</p></div>
+                    <button class="btn btn-success" onclick="ticketAyarKaydet()">💾 Ticket Ayarlarını Kaydet</button>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-info"><span>TOPLAM BİLET</span><h3 id="t-stat-toplam">0</h3><small id="t-stat-dagilim">0 Açık • 0 Kapalı</small></div><div class="stat-icon" style="background:rgba(59,130,246,0.15);color:#60a5fa;">🎫</div></div>
+                    <div class="stat-card"><div class="stat-info"><span>ORTALAMA YILDIZ</span><h3 id="t-stat-puan">0.0 ★</h3><small>1–5 ★ Puanlama</small></div><div class="stat-icon" style="background:rgba(245,158,11,0.15);color:#fbbf24;">⭐</div></div>
+                    <div class="stat-card"><div class="stat-info"><span>MEMNUNİYET</span><h3 id="t-stat-memnun">%0</h3><small>4–5 ★ Verenler</small></div><div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#34d399;">💚</div></div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header"><h3>⚙️ Ticket Paneli & .PNG Görsel Yükleme</h3></div>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                             <div class="form-group"><label>Bilet Kategorisi</label><select id="inp-ticketKategori" class="form-control category-select"></select></div>
                             <div class="form-group"><label>Destek Yetkili Rolü</label><select id="inp-ticketYetkiliRol" class="form-control role-select"></select></div>
                         </div>
-                        <div style="display:grid; grid-template-columns:1fr 100px; gap:10px;">
-                            <div class="form-group"><label>Panel Görsel URL</label><input type="text" id="inp-ticketPanelGorselUrl" class="form-control"></div>
-                            <div class="form-group"><label>Renk</label><input type="color" id="inp-ticketPanelRenk" class="form-control" style="height:38px; padding:2px;" value="#3b82f6"></div>
+                        <div class="form-group">
+                            <label>🖼️ Bilet Görseli (.PNG/.JPG Dosya Yükle veya URL Gir)</label>
+                            <div style="display:flex; gap:8px; margin-bottom:6px;">
+                                <input type="text" id="inp-ticketPanelGorselUrl" class="form-control" placeholder="https://... veya yandaki butondan .png yükle">
+                                <input type="color" id="inp-ticketPanelRenk" class="form-control" style="width:52px; padding:2px;" value="#3b82f6">
+                            </div>
+                            <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="form-control" onchange="gorselDosyaYukle(this, 'inp-ticketPanelGorselUrl', 'ticket-gorsel-prev')">
+                            <img id="ticket-gorsel-prev" src="" style="display:none; max-height:120px; border-radius:8px; margin-top:8px; border:1px solid var(--border);">
                         </div>
-                        <div class="switch-row">
-                            <div class="switch-row-info"><strong>🤖 Ticket İçi AI Ön Destek</strong></div>
-                            <label class="toggle-switch"><input type="checkbox" id="inp-ticketAiAktif"><span class="toggle-slider"></span></label>
-                        </div>
+                        <div class="switch-row"><div class="switch-row-info"><strong>🤖 Ticket İçi AI Ön Destek</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-ticketAiAktif"><span class="toggle-slider"></span></label></div>
                         <div style="display:flex; gap:8px; margin-top:10px;">
                             <select id="ticket-kur-kanal" class="form-control text-channel-select"></select>
                             <button class="btn btn-primary" onclick="ticketMenusuKur()">📨 Menüyü Kur</button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header"><h3>🏅 Yetkili Karnesi & Açık Biletler</h3></div>
+                        <div class="table-responsive" style="margin-bottom:14px;">
+                            <table>
+                                <thead><tr><th>Yetkili</th><th>Çözülen</th><th>Ortalama</th><th>Son Yorum</th></tr></thead>
+                                <tbody id="yetkili-karnesi-body"></tbody>
+                            </table>
+                        </div>
+                        <h4 style="font-size:13px; color:var(--text-muted); margin-bottom:6px;">🟢 Açık Biletler</h4>
+                        <div class="table-responsive">
+                            <table>
+                                <thead><tr><th>Kanal</th><th>Konu</th><th>Üstlenen</th><th>Oku</th></tr></thead>
+                                <tbody id="acik-biletler-body"></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -570,20 +480,28 @@
                 </div>
             </section>
 
-            <!-- 5. SES DİNLEME, TOPLANTI TUTANAĞI & ÖZEL SES ODASI PANELİ -->
+            <!-- 5. SES DİNLEME, DISCORD ARŞİV, CANLI TTS ANONS & ÖZEL ODA -->
             <section id="tab-ses" class="tab-section">
                 <div class="page-header">
-                    <div><h1>🎙️ Canlı Ses Dinleme, AI Tutanak & Özel Ses Odası</h1><p>Canlı ses dinleme, WAV kayıt, metin kanalına butonlu özel oda paneli kurulumu ve anlık oda oluşturma.</p></div>
+                    <div><h1>🎙️ Ses Dinleme, Discord Arşiv & Canlı Telsiz (TTS) Anons</h1><p>Onarılmış ses alıcı, Discord arşiv kanalına kalıcı WAV yedekleme, canlı TTS anons ve butonlu özel ses odası paneli.</p></div>
+                    <button class="btn btn-success" onclick="sesArsivAyarKaydet()">💾 Ses Arşiv Kanalını Kaydet</button>
                 </div>
+
                 <div class="grid-2">
                     <div class="card">
-                        <div class="card-header"><h3>🎛️ Canlı Ses Dinleme & Kayıt</h3><span id="ses-durum-etiket" class="badge badge-amber">BAĞLI DEĞİL</span></div>
-                        <div class="form-group"><label>Dinlenecek Ses Kanalı</label><select id="ses-kanal-select" class="form-control voice-channel-select"></select></div>
+                        <div class="card-header">
+                            <h3>🎛️ Canlı Ses Dinleme & Kayıt</h3>
+                            <span id="ses-durum-etiket" class="badge badge-amber">BAĞLI DEĞİL</span>
+                        </div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <div class="form-group"><label>Dinlenecek Ses Kanalı</label><select id="ses-kanal-select" class="form-control voice-channel-select"></select></div>
+                            <div class="form-group"><label>☁️ Discord WAV Yedek Kanalı</label><select id="inp-sesArsivKanal" class="form-control text-channel-select"></select></div>
+                        </div>
                         <div class="switch-row">
-                            <div class="switch-row-info"><strong>💾 Konuşmaları .WAV Olarak Kaydet</strong></div>
+                            <div class="switch-row-info"><strong>💾 Konuşmaları .WAV Kaydet & Discord'a Yedekle</strong><span id="ses-paket-sayac">Gelen Ses Paketi: 0</span></div>
                             <label class="toggle-switch"><input type="checkbox" id="ses-kayit-yap" checked><span class="toggle-slider"></span></label>
                         </div>
-                        <div style="display:flex; gap:10px; margin-bottom:14px;">
+                        <div style="display:flex; gap:10px; margin-bottom:12px;">
                             <button id="btn-ses-baslat" class="btn btn-success" onclick="sesDinlemeBaslatUI()">▶️ Başlat</button>
                             <button id="btn-ses-durdur" class="btn btn-danger" onclick="sesDinlemeDurdurUI()" disabled>⏹️ Durdur & Kaydet</button>
                             <button id="btn-audio-mute" class="btn btn-secondary btn-sm" onclick="tarayiciSesiAcKapat()">🔊 Ses: AÇIK</button>
@@ -592,31 +510,18 @@
                     </div>
 
                     <div class="card">
-                        <div class="card-header"><h3>📤 Metin Kanalına "Özel Ses Odası" Paneli Kur</h3></div>
-                        <p style="font-size:12.5px; color:var(--text-muted); margin-bottom:12px;">Seçtiğiniz metin kanalına üyelerin tıklayıp kendi ses odalarını açabilecekleri butonlu komuta kartı gönderir.</p>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                            <div class="form-group"><label>Panel Metin Kanalı</label><select id="ses-panel-kanal" class="form-control text-channel-select"></select></div>
-                            <div class="form-group"><label>Odaların Açılacağı Kategori</label><select id="ses-panel-kategori" class="form-control category-select"></select></div>
-                        </div>
-                        <div class="form-group"><label>Panel Başlığı</label><input type="text" id="ses-panel-baslik" class="form-control" value="🎙️ Özel Ses Odası Oluşturma Merkezi"></div>
-                        <div class="form-group"><label>Panel Açıklaması</label><textarea id="ses-panel-aciklama" class="form-control" rows="2">Aşağıdaki butonlara tıklayarak kendinize veya ekibinize özel ses odası açabilirsiniz. Oda boşaldığında otomatik silinir.</textarea></div>
-                        <button class="btn btn-success" onclick="sesOdasiPanelKur()">📨 Metin Kanalına Ses Odası Paneli Kur</button>
-                    </div>
-                </div>
+                        <div class="card-header"><h3>📢 Ses Kanalına Canlı Telsiz / TTS Anons Yap</h3></div>
+                        <div class="form-group"><label>Hedef Ses Kanalı</label><select id="anons-ses-kanal" class="form-control voice-channel-select"></select></div>
+                        <div class="form-group"><label>Okunacak Komuta Anonsu (Türkçe TTS)</label><textarea id="anons-metin" class="form-control" rows="2" placeholder="Örn: Dikkat! Tüm personel 5 dakika içinde toplantı odasına geçsin!"></textarea></div>
+                        <button class="btn btn-warning" onclick="canliAnonsGonder()">📡 Ses Kanalına Canlı Anons Oku</button>
 
-                <div class="card">
-                    <div class="card-header"><h3>🔊 Panelden Anında Özel Ses Odası Oluştur</h3></div>
-                    <div style="display:grid; grid-template-columns:2fr 1fr 1.5fr 1.5fr; gap:10px; align-items:end;">
-                        <div class="form-group" style="margin:0;"><label>Oda İsmi</label><input type="text" id="oda-isim" class="form-control" placeholder="Örn: Komuta Toplantısı"></div>
-                        <div class="form-group" style="margin:0;"><label>Limit (0=Sınırsız)</label><input type="number" id="oda-limit" class="form-control" min="0" max="99" value="0"></div>
-                        <div class="form-group" style="margin:0;"><label>İzinli Üye</label><select id="oda-izinli-uye" class="form-control member-select"></select></div>
-                        <div class="form-group" style="margin:0;"><label>İzinli Rol</label><select id="oda-izinli-rol" class="form-control role-select"></select></div>
-                    </div>
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:12px;">
-                        <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
-                            <input type="checkbox" id="oda-ozel"> 🔒 Özel / Kilitli Oda Olsun
-                        </label>
-                        <button class="btn btn-primary" onclick="ozelSesOdasiOlustur()">➕ Ses Odası Oluştur (Boşalınca Oto-Sil)</button>
+                        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+                        <h4 style="font-size:13.5px; margin-bottom:10px;">📤 Metin Kanalına "Özel Ses Odası" Paneli Kur</h4>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+                            <select id="ses-panel-kanal" class="form-control text-channel-select"></select>
+                            <select id="ses-panel-kategori" class="form-control category-select"></select>
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="sesOdasiPanelKur()">📨 Metin Kanalına Butonlu Ses Odası Paneli Gönder</button>
                     </div>
                 </div>
 
@@ -631,147 +536,155 @@
                 </div>
             </section>
 
-            <!-- 6. NÖBET, LOA & OPERASYON PLANLAYICI -->
-            <section id="tab-operasyon" class="tab-section">
+            <!-- 6. DETAYLI ÇEKİLİŞ SİSTEMİ -->
+            <section id="tab-cekilis" class="tab-section">
                 <div class="page-header">
-                    <div><h1>🎯 Nöbet Süreleri, İzin (LOA) & Operasyon Planlayıcı</h1><p>Haftalık ses aktifliği, mazeret onayları ve butonlu operasyon duyuruları.</p></div>
+                    <div><h1>🎉 Detaylı & Şartlı Çekiliş Sistemi</h1><p>Rol, minimum seviye ve nöbet süresi şartlı çekilişler başlatın; erken bitirin veya yeniden çekin (Reroll).</p></div>
                 </div>
-                <div class="grid-2">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>⏱️ Haftalık Ses Aktiflik & Nöbet Tablosu</h3>
-                            <button class="btn btn-danger btn-sm" onclick="nobetSifirla()">🔄 Haftayı Sıfırla</button>
-                        </div>
-                        <div class="table-responsive">
-                            <table>
-                                <thead><tr><th>Personel</th><th>Toplam Nöbet</th><th>Son Güncelleme</th></tr></thead>
-                                <tbody id="nobet-body"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header"><h3>🎯 Operasyon & Eğitim Planlayıcı</h3></div>
-                        <div class="form-group"><label>Duyuru Kanalı</label><select id="op-kanal" class="form-control text-channel-select"></select></div>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                            <div class="form-group"><label>Operasyon / Eğitim Başlığı</label><input type="text" id="op-baslik" class="form-control" placeholder="Örn: Gece Tatbikatı"></div>
-                            <div class="form-group"><label>Tarih & Saat</label><input type="text" id="op-tarih" class="form-control" placeholder="Örn: 22 Kasım 21:00"></div>
-                        </div>
-                        <div class="form-group"><label>Açıklama</label><textarea id="op-aciklama" class="form-control" rows="2"></textarea></div>
-                        <button class="btn btn-success" onclick="operasyonOlustur()">🚀 Operasyon Duyurusu Yayınla</button>
-                    </div>
-                </div>
-
                 <div class="card">
-                    <div class="card-header"><h3>📝 İzin / Mazeret (LOA) Talepleri (Onaylanınca Otomatik [İZİNLİ] Rolü)</h3></div>
+                    <div class="card-header"><h3>🎁 Yeni Çekiliş Başlat</h3></div>
+                    <div style="display:grid; grid-template-columns:1.5fr 2fr 1fr 1fr; gap:10px; margin-bottom:10px;">
+                        <div class="form-group" style="margin:0;"><label>Çekiliş Kanalı</label><select id="cek-kanal" class="form-control text-channel-select"></select></div>
+                        <div class="form-group" style="margin:0;"><label>Ödül</label><input type="text" id="cek-odul" class="form-control" placeholder="Örn: 500 Robux / VIP Rol"></div>
+                        <div class="form-group" style="margin:0;"><label>Süre (Dakika)</label><input type="number" id="cek-sure" class="form-control" value="60" min="1"></div>
+                        <div class="form-group" style="margin:0;"><label>Kazanan Sayısı</label><input type="number" id="cek-kazanan" class="form-control" value="1" min="1" max="20"></div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1.5fr 1fr 1fr auto; gap:10px; align-items:end;">
+                        <div class="form-group" style="margin:0;"><label>Şart: Gerekli Rol (Opsiyonel)</label><select id="cek-rol" class="form-control role-select"></select></div>
+                        <div class="form-group" style="margin:0;"><label>Şart: Min. Seviye</label><input type="number" id="cek-seviye" class="form-control" value="0" min="0"></div>
+                        <div class="form-group" style="margin:0;"><label>Şart: Min. Nöbet (Dk)</label><input type="number" id="cek-nobet" class="form-control" value="0" min="0"></div>
+                        <button class="btn btn-success" onclick="cekilisBaslatUI()">🎉 Çekilişi Başlat</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>📋 Aktif & Tamamlanan Çekilişler</h3></div>
                     <div class="table-responsive">
                         <table>
-                            <thead><tr><th>Personel</th><th>Süre</th><th>Sebep</th><th>Durum</th><th>İşlem</th></tr></thead>
-                            <tbody id="loa-body"></tbody>
+                            <thead><tr><th>ID</th><th>Ödül</th><th>Katılımcı</th><th>Durum</th><th>İşlemler</th></tr></thead>
+                            <tbody id="cekilisler-body"></tbody>
                         </table>
                     </div>
                 </div>
             </section>
 
-            <!-- 7. DUYURU STÜDYOSU -->
+            <!-- 7. NÖBET, LOA & OPERASYON -->
+            <section id="tab-operasyon" class="tab-section">
+                <div class="page-header"><div><h1>🎯 Nöbet Süreleri, İzin (LOA) & Operasyon Planlayıcı</h1></div></div>
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header"><h3>⏱️ Haftalık Ses Nöbet Tablosu</h3><button class="btn btn-danger btn-sm" onclick="nobetSifirla()">🔄 Sıfırla</button></div>
+                        <div class="table-responsive"><table><thead><tr><th>Personel</th><th>Süre</th><th>Son Güncelleme</th></tr></thead><tbody id="nobet-body"></tbody></table></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h3>🎯 Operasyon & Eğitim Planlayıcı</h3></div>
+                        <div class="form-group"><label>Duyuru Kanalı</label><select id="op-kanal" class="form-control text-channel-select"></select></div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <div class="form-group"><label>Başlık</label><input type="text" id="op-baslik" class="form-control" placeholder="Gece Tatbikatı"></div>
+                            <div class="form-group"><label>Tarih & Saat</label><input type="text" id="op-tarih" class="form-control" placeholder="22 Kasım 21:00"></div>
+                        </div>
+                        <div class="form-group"><label>Açıklama</label><textarea id="op-aciklama" class="form-control" rows="2"></textarea></div>
+                        <button class="btn btn-success" onclick="operasyonOlustur()">🚀 Operasyon Yayınla</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>📝 İzin / Mazeret (LOA) Talepleri</h3></div>
+                    <div class="table-responsive"><table><thead><tr><th>Personel</th><th>Süre</th><th>Sebep</th><th>Durum</th><th>İşlem</th></tr></thead><tbody id="loa-body"></tbody></table></div>
+                </div>
+            </section>
+
+            <!-- 8. DUYURU STÜDYOSU -->
             <section id="tab-duyuru" class="tab-section">
-                <div class="page-header"><div><h1>📢 Duyuru Stüdyosu</h1></div></div>
+                <div class="page-header"><div><h1>📢 Duyuru Stüdyosu (.PNG Destekli)</h1></div></div>
                 <div class="card">
                     <div class="form-group"><label>Kanal</label><select id="duyuru-kanal" class="form-control text-channel-select"></select></div>
                     <div class="form-group"><label>Başlık</label><input type="text" id="duyuru-baslik" class="form-control" value="📢 Resmi Komuta Duyurusu"></div>
                     <div class="form-group"><label>İçerik</label><textarea id="duyuru-icerik" class="form-control" rows="4"></textarea></div>
-                    <div style="display:grid; grid-template-columns:1fr 120px; gap:10px;">
-                        <div class="form-group"><label>Görsel URL (Opsiyonel)</label><input type="text" id="duyuru-gorsel" class="form-control"></div>
-                        <div class="form-group"><label>Renk</label><input type="color" id="duyuru-renk" class="form-control" style="height:38px;padding:2px;" value="#3b82f6"></div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr 100px; gap:10px; align-items:end; margin-bottom:14px;">
+                        <div class="form-group" style="margin:0;"><label>Görsel URL</label><input type="text" id="duyuru-gorsel" class="form-control"></div>
+                        <div class="form-group" style="margin:0;"><label>veya .PNG Yükle</label><input type="file" accept="image/*" class="form-control" onchange="gorselDosyaYukle(this, 'duyuru-gorsel')"></div>
+                        <div class="form-group" style="margin:0;"><label>Renk</label><input type="color" id="duyuru-renk" class="form-control" style="height:38px;padding:2px;" value="#3b82f6"></div>
                     </div>
                     <button class="btn btn-success" onclick="duyuruGonder()">🚀 Yayınla</button>
                 </div>
             </section>
 
-            <!-- 8. GELİŞMİŞ MODERASYON & AUTOMOD -->
+            <!-- 9. AI MODERASYON, UYARI MERDİVENİ & KARA LİSTE -->
             <section id="tab-automod" class="tab-section">
                 <div class="page-header">
-                    <div><h1>🛡️ Gelişmiş Moderasyon & AutoMod Kalkanı</h1><p>Anında disiplin işlemleri, otomatik filtreler ve yeni hesap koruması.</p></div>
-                    <button class="btn btn-success" onclick="automodAyarKaydet()">💾 AutoMod Ayarlarını Kaydet</button>
+                    <div><h1>🛡️ AI Moderasyon, Uyarı Merdiveni & Ortak Kara Liste</h1><p>Gemini AI küfür/argo algılama (aq, amk, gizli hakaretler), panelden ayarlanabilir uyarı cezaları ve kara liste.</p></div>
+                    <button class="btn btn-success" onclick="automodAyarKaydet()">💾 Tüm Moderasyon Ayarlarını Kaydet</button>
                 </div>
 
                 <div class="card">
-                    <div class="card-header"><h3>⚖️ Hızlı Komuta Moderasyon İşlemi (Panelden Doğrudan Uygula)</h3></div>
-                    <div style="display:grid; grid-template-columns:1.5fr 1fr 0.8fr 2fr; gap:10px; align-items:end;">
-                        <div class="form-group" style="margin:0;"><label>Hedef Personel</label><select id="mod-hedef-uye" class="form-control member-select"></select></div>
-                        <div class="form-group" style="margin:0;">
-                            <label>İşlem Türü</label>
-                            <select id="mod-islem-tur" class="form-control">
-                                <option value="uyar">⚠️ Resmi Uyarı Ver</option>
-                                <option value="sustur">🔇 Sustur (Timeout)</option>
-                                <option value="at">👢 Sunucudan At (Kick)</option>
-                                <option value="yasakla">🔨 Kalıcı Yasakla (Ban)</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="margin:0;"><label>Süre (Dk)</label><input type="number" id="mod-sure-dk" class="form-control" value="10" min="1" max="10080"></div>
-                        <div class="form-group" style="margin:0;"><label>Sebep</label><input type="text" id="mod-sebep" class="form-control" placeholder="Disiplin kuralı ihlali"></div>
-                    </div>
-                    <div style="margin-top:12px; text-align:right;">
-                        <button class="btn btn-danger" onclick="panelModerasyonUygula()">⚡ Moderasyon İşlemini Uygula</button>
+                    <div class="card-header"><h3>⚖️ Hızlı Komuta Moderasyon İşlemi</h3></div>
+                    <div style="display:grid; grid-template-columns:1.5fr 1fr 0.8fr 2fr auto; gap:10px; align-items:end;">
+                        <div class="form-group" style="margin:0;"><label>Personel</label><select id="mod-hedef-uye" class="form-control member-select"></select></div>
+                        <div class="form-group" style="margin:0;"><label>İşlem</label><select id="mod-islem-tur" class="form-control"><option value="uyar">⚠️ Uyarı Ver</option><option value="sustur">🔇 Sustur</option><option value="at">👢 At (Kick)</option><option value="yasakla">🔨 Yasakla (Ban)</option></select></div>
+                        <div class="form-group" style="margin:0;"><label>Süre (Dk)</label><input type="number" id="mod-sure-dk" class="form-control" value="10"></div>
+                        <div class="form-group" style="margin:0;"><label>Sebep</label><input type="text" id="mod-sebep" class="form-control" placeholder="Disiplin ihlali"></div>
+                        <button class="btn btn-danger" onclick="panelModerasyonUygula()">⚡ Uygula</button>
                     </div>
                 </div>
 
                 <div class="grid-2">
                     <div class="card">
-                        <div class="card-header"><h3>⚡ Otomatik Koruma Kuralları & Ceza</h3></div>
-                        <div class="switch-row"><div class="switch-row-info"><strong>🤬 Küfür & Hakaret Filtresi</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-kufurEngel"><span class="toggle-slider"></span></label></div>
+                        <div class="card-header"><h3>🤖 AI Moderasyon & Otomatik Koruma</h3></div>
+                        <div class="switch-row"><div class="switch-row-info"><strong>🤖 AI Moderasyon (Gemini Küfür/Argo Algılayıcı)</strong><span>aq, amk, gizlenmiş argo ve hakaretleri yapay zeka ile anında yakalar</span></div><label class="toggle-switch"><input type="checkbox" id="inp-aiModerasyonAktif"><span class="toggle-slider"></span></label></div>
+                        <div class="switch-row"><div class="switch-row-info"><strong>🤬 Anlık Sözlük & Küfür Filtresi</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-kufurEngel"><span class="toggle-slider"></span></label></div>
                         <div class="switch-row"><div class="switch-row-info"><strong>🔗 Link & Davet Engeli</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-linkEngel"><span class="toggle-slider"></span></label></div>
                         <div class="switch-row"><div class="switch-row-info"><strong>🔠 CAPS LOCK Engeli</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-capsEngel"><span class="toggle-slider"></span></label></div>
-                        <div class="switch-row"><div class="switch-row-info"><strong>🛑 Hızlı Mesaj Flood / Spam</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-spamEngel"><span class="toggle-slider"></span></label></div>
-                        <div class="switch-row"><div class="switch-row-info"><strong>🔁 Tekrarlanan Mesaj Engeli</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-tekrarMesajEngel"><span class="toggle-slider"></span></label></div>
+                        <div class="switch-row"><div class="switch-row-info"><strong>🛑 Flood & Tekrarlanan Mesaj Spamı</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-spamEngel"><span class="toggle-slider"></span></label></div>
 
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;">
-                            <div class="form-group">
-                                <label>İhlal Ceza Aksiyonu</label>
-                                <select id="inp-cezaAksiyonu" class="form-control">
-                                    <option value="sil">Sadece Mesajı Sil</option>
-                                    <option value="sil_uyar">Mesajı Sil + Resmi Uyarı</option>
-                                    <option value="sil_timeout">Mesajı Sil + Susturma (Timeout)</option>
-                                </select>
-                            </div>
-                            <div class="form-group"><label>Timeout Süresi (Dakika)</label><input type="number" id="inp-timeoutDakika" class="form-control" min="1" max="1440" value="5"></div>
-                        </div>
-                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
-                            <div class="form-group"><label>Oto-Ceza Uyarı Eşiği</label><input type="number" id="inp-otoCezaEsik" class="form-control" min="1" max="20" value="3"></div>
-                            <div class="form-group"><label>Yeni Hesap Koruması (Gün)</label><input type="number" id="inp-yeniHesapGun" class="form-control" min="0" max="365" value="0"></div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:12px;">
+                            <div class="form-group"><label>İhlal Aksiyonu</label><select id="inp-cezaAksiyonu" class="form-control"><option value="uyari_merdiveni">Uyarı Merdiveni</option><option value="sil_timeout">Sil + Timeout</option><option value="sil">Sadece Sil</option></select></div>
+                            <div class="form-group"><label>Yeni Hesap (Gün)</label><input type="number" id="inp-yeniHesapGun" class="form-control" min="0" value="0"></div>
                             <div class="form-group"><label>Muaf Rol</label><select id="inp-muafRol" class="form-control role-select"></select></div>
                         </div>
                     </div>
 
                     <div class="card">
-                        <div class="card-header"><h3>🚫 Özel Yasaklı Kelimeler & Son Uyarılar</h3></div>
-                        <div style="display:flex; gap:8px; margin-bottom:14px;">
-                            <input type="text" id="yeni-yasakli-kelime" class="form-control" placeholder="Yasaklı kelime ekle...">
-                            <button class="btn btn-danger" onclick="yasakliKelimeEkle()">+ Ekle</button>
+                        <div class="card-header">
+                            <h3>📈 Panelden Ayarlanabilir Uyarı Merdiveni</h3>
+                            <button class="btn btn-primary btn-sm" onclick="uyariKuraliEkle()">+ Kural Ekle</button>
                         </div>
-                        <div id="yasakli-kelimeler-cloud" class="tag-cloud" style="margin-bottom:18px;"></div>
-
-                        <h4 style="font-size:13.5px; margin-bottom:8px; color:var(--text-muted);">⚠️ Kayıtlı Resmi Uyarılar</h4>
-                        <div class="table-responsive" style="max-height:220px; overflow-y:auto;">
+                        <div class="table-responsive" style="margin-bottom:14px;">
                             <table>
-                                <thead><tr><th>Personel</th><th>Sebep</th><th>Yetkili</th><th>Sil</th></tr></thead>
-                                <tbody id="uyarilar-body"></tbody>
+                                <thead><tr><th>Uyarı Sayısı</th><th>Uygulanacak Ceza</th><th>Süre (Dk)</th><th>Sil</th></tr></thead>
+                                <tbody id="uyari-kurallari-body"></tbody>
                             </table>
                         </div>
+                        <div style="display:flex; gap:8px;">
+                            <input type="text" id="yeni-yasakli-kelime" class="form-control" placeholder="Özel yasaklı kelime ekle...">
+                            <button class="btn btn-danger btn-sm" onclick="yasakliKelimeEkle()">+ Ekle</button>
+                        </div>
+                        <div id="yasakli-kelimeler-cloud" class="tag-cloud"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>⛔ Ortak Kara Liste (Blacklist) & Alt Hesap İstihbaratı</h3>
+                        <label style="display:flex; align-items:center; gap:7px; font-size:12.5px;"><input type="checkbox" id="inp-karaListeOtoBan"> Girişte Otomatik Banla</label>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr 2fr auto; gap:8px; margin-bottom:12px;">
+                        <input type="text" id="kl-discord" class="form-control" placeholder="Discord ID">
+                        <input type="text" id="kl-roblox" class="form-control" placeholder="Roblox Kullanıcı Adı">
+                        <input type="text" id="kl-sebep" class="form-control" placeholder="Kara liste sebebi">
+                        <button class="btn btn-danger" onclick="karaListeEkleUI()">⛔ Ekle</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table><thead><tr><th>Discord ID</th><th>Roblox</th><th>Sebep</th><th>Ekleyen</th><th>Sil</th></tr></thead><tbody id="karaliste-body"></tbody></table>
                     </div>
                 </div>
             </section>
 
-            <!-- 9. KARTLAR, LOGLAR & XP -->
+            <!-- 10. KARTLAR, LOGLAR & XP -->
             <section id="tab-loglar" class="tab-section">
-                <div class="page-header">
-                    <div><h1>🖼️ Karşılama Kartları, Log Kanalları & Seviye</h1></div>
-                    <button class="btn btn-success" onclick="logVeKartKaydet()">💾 Kaydet</button>
-                </div>
+                <div class="page-header"><div><h1>🖼️ Karşılama Kartları, Log Kanalları & Seviye</h1></div><button class="btn btn-success" onclick="logVeKartKaydet()">💾 Kaydet</button></div>
                 <div class="grid-2">
                     <div class="card">
                         <div class="card-header"><h3>📡 Log Kanalları & Oto-Rol</h3></div>
-                        <div class="form-group"><label>Moderasyon Log Kanalı</label><select id="inp-modLogKanal" class="form-control text-channel-select"></select></div>
+                        <div class="form-group"><label>Moderasyon & Alarm Log Kanalı</label><select id="inp-modLogKanal" class="form-control text-channel-select"></select></div>
                         <div class="form-group"><label>Ses Log Kanalı</label><select id="inp-sesLogKanal" class="form-control text-channel-select"></select></div>
                         <div class="form-group"><label>Giriş-Çıkış Kart Kanalı</label><select id="inp-girisCikisLogKanal" class="form-control text-channel-select"></select></div>
                         <div class="form-group"><label>Oto-Rol</label><select id="inp-otoRol" class="form-control role-select"></select></div>
@@ -784,69 +697,51 @@
                             <div class="form-group"><label>Renk</label><input type="color" id="inp-girisRenk" class="form-control" style="height:38px;padding:2px;"></div>
                         </div>
                         <div class="form-group"><label>Giriş Mesajı ({uye}, {sayi})</label><input type="text" id="inp-girisMesaj" class="form-control"></div>
-                        <div class="form-group"><label>Giriş Görsel URL</label><input type="text" id="inp-girisArkaPlanUrl" class="form-control"></div>
-                        <div class="form-group"><label>Çıkış Görsel URL</label><input type="text" id="inp-cikisArkaPlanUrl" class="form-control"></div>
+                        <div class="form-group"><label>Giriş Görseli (.PNG veya URL)</label><input type="text" id="inp-girisArkaPlanUrl" class="form-control" style="margin-bottom:6px;"><input type="file" accept="image/*" class="form-control" onchange="gorselDosyaYukle(this, 'inp-girisArkaPlanUrl')"></div>
+                        <div class="form-group"><label>Çıkış Görseli (.PNG veya URL)</label><input type="text" id="inp-cikisArkaPlanUrl" class="form-control" style="margin-bottom:6px;"><input type="file" accept="image/*" class="form-control" onchange="gorselDosyaYukle(this, 'inp-cikisArkaPlanUrl')"></div>
                     </div>
                 </div>
             </section>
 
-            <!-- 10. TEMA & MODÜL YÖNETİMİ -->
+            <!-- 11. TEMA & MODÜL -->
             <section id="tab-tema" class="tab-section">
-                <div class="page-header">
-                    <div><h1>🎨 Tema, Marka & Modül Aç/Kapat Yönetimi</h1><p>Her sunucu için bağımsız görünüm ve modül kontrolü.</p></div>
-                    <button class="btn btn-success" onclick="temaVeModulKaydet()">💾 Tema & Modülleri Kaydet</button>
-                </div>
+                <div class="page-header"><div><h1>🎨 Tema, Marka & Modül Yönetimi</h1></div><button class="btn btn-success" onclick="temaVeModulKaydet()">💾 Kaydet</button></div>
                 <div class="grid-2">
                     <div class="card">
-                        <div class="card-header"><h3>🎨 Panel Görünüm & Marka</h3></div>
-                        <div class="form-group"><label>Panel Ana Başlığı</label><input type="text" id="inp-temaBaslik" class="form-control"></div>
+                        <div class="card-header"><h3>🎨 Görünüm & Marka</h3></div>
+                        <div class="form-group"><label>Ana Başlık</label><input type="text" id="inp-temaBaslik" class="form-control"></div>
                         <div class="form-group"><label>Alt Başlık</label><input type="text" id="inp-temaAltBaslik" class="form-control"></div>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                            <div class="form-group"><label>Ana Renk (Primary)</label><input type="color" id="inp-temaPrimary" class="form-control" style="height:40px;padding:2px;"></div>
-                            <div class="form-group"><label>Vurgu Rengi (Accent)</label><input type="color" id="inp-temaAccent" class="form-control" style="height:40px;padding:2px;"></div>
+                            <div class="form-group"><label>Ana Renk</label><input type="color" id="inp-temaPrimary" class="form-control" style="height:40px;padding:2px;"></div>
+                            <div class="form-group"><label>Vurgu Rengi</label><input type="color" id="inp-temaAccent" class="form-control" style="height:40px;padding:2px;"></div>
                         </div>
-                        <div class="form-group">
-                            <label>Hazır Tema Paleti</label>
-                            <select id="inp-temaPalet" class="form-control">
-                                <option value="navy">Komuta Lacivert (Varsayılan)</option>
-                                <option value="olive">Askeri Haki / Operasyon</option>
-                                <option value="crimson">Kızıl Karargah</option>
-                                <option value="purple">Gece Moru</option>
-                            </select>
-                        </div>
+                        <div class="form-group"><label>Palet</label><select id="inp-temaPalet" class="form-control"><option value="navy">Komuta Lacivert</option><option value="olive">Askeri Haki</option><option value="crimson">Kızıl Karargah</option><option value="purple">Gece Moru</option></select></div>
                     </div>
-                    <div class="card">
-                        <div class="card-header"><h3>🔌 Modül Aç / Kapat Anahtarları</h3></div>
-                        <div id="moduller-grid"></div>
-                    </div>
+                    <div class="card"><div class="card-header"><h3>🔌 Modül Anahtarları</h3></div><div id="moduller-grid"></div></div>
                 </div>
             </section>
 
-            <!-- 11. FİLTRELENEBİLİR KOMUTA LOGLARI -->
+            <!-- 12. KOMUTA LOGLARI -->
             <section id="tab-denetim" class="tab-section">
                 <div class="page-header"><div><h1>⚖️ Filtrelenebilir Komuta Logları</h1></div></div>
                 <div class="card">
                     <div class="card-header">
-                        <h3>📋 Komuta Denetim Kayıtları</h3>
+                        <h3>📋 Denetim Kayıtları</h3>
                         <select id="log-kategori-filtre" class="form-control" style="width:220px;" onchange="denetimTablosuCiz()">
                             <option value="ALL">Tüm Kategoriler</option>
-                            <option value="RUTBE">🎖️ RÜTBE</option>
-                            <option value="TICKET">🎫 BİLET (TICKET)</option>
-                            <option value="AI">🤖 YAPAY ZEKA (AI)</option>
-                            <option value="SES">🎙️ SES ODASI & KAYIT</option>
+                            <option value="RUTBE">🎖️ RÜTBE & UPDATE</option>
+                            <option value="SICIL">🏅 SİCİL & MADALYA</option>
+                            <option value="TICKET">🎫 TICKET</option>
+                            <option value="AI">🤖 AI</option>
+                            <option value="SES">🎙️ SES & ANONS</option>
+                            <option value="CEKILIS">🎉 ÇEKİLİŞ</option>
                             <option value="MODERASYON">⚖️ MODERASYON</option>
-                            <option value="AUTOMOD">🛡️ AUTOMOD</option>
+                            <option value="AUTOMOD">🛡️ AUTOMOD / AI MOD</option>
                             <option value="LOA">📝 İZİN (LOA)</option>
-                            <option value="OPERASYON">🎯 OPERASYON</option>
                             <option value="PANEL">⚙️ PANEL</option>
                         </select>
                     </div>
-                    <div class="table-responsive">
-                        <table>
-                            <thead><tr><th>Tarih</th><th>Kategori</th><th>İşlem</th><th>Detay</th><th>Yetkili</th></tr></thead>
-                            <tbody id="denetim-logs-body"></tbody>
-                        </table>
-                    </div>
+                    <div class="table-responsive"><table><thead><tr><th>Tarih</th><th>Kategori</th><th>İşlem</th><th>Detay</th><th>Yetkili</th></tr></thead><tbody id="denetim-logs-body"></tbody></table></div>
                 </div>
             </section>
 
@@ -854,13 +749,10 @@
     </div>
 </div>
 
-<!-- GENEL MODAL -->
+<!-- MODAL -->
 <div id="genel-modal" class="modal-backdrop" onclick="if(event.target===this) this.classList.remove('open')">
     <div class="modal-card">
-        <div class="modal-header">
-            <h3 id="modal-title">Detay</h3>
-            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('genel-modal').classList.remove('open')">✕ Kapat</button>
-        </div>
+        <div class="modal-header"><h3 id="modal-title">Detay</h3><button class="btn btn-secondary btn-sm" onclick="document.getElementById('genel-modal').classList.remove('open')">✕ Kapat</button></div>
         <div id="modal-body" class="modal-body"></div>
     </div>
 </div>
@@ -874,21 +766,27 @@
     let panelData = null;
     let geciciRutbeler = [];
     let geciciYasakliKelimeler = [];
+    let geciciOzelKomutlar = [];
+    let geciciUyariKurallari = [];
     let sesEventSource = null, audioCtx = null, gainNode = null, nextPlayTime = 0, tarayiciSesiAcik = true;
     const aktifKonusanSet = new Map();
 
     const MODUL_LISTESI = [
         { key: 'ai', label: '🤖 Yapay Zeka (AI)' },
+        { key: 'aiModerasyon', label: '🛡️ AI Moderasyon (Küfür Algıla)' },
+        { key: 'ozelKomutlar', label: '⚡ Özel Komutlar (!XXXXX)' },
         { key: 'ticket', label: '🎫 Destek Bileti (Ticket)' },
-        { key: 'rutbe', label: '🎖️ TSF Rütbe Sistemi' },
+        { key: 'rutbe', label: '🎖️ TSF Rütbe & /update' },
+        { key: 'sinav', label: '📝 Otomatik Terfi Sınavı' },
+        { key: 'cekilis', label: '🎉 Çekiliş Sistemi' },
+        { key: 'karaListe', label: '⛔ Ortak Kara Liste' },
         { key: 'sesOdasi', label: '🔊 Özel Ses Odası' },
         { key: 'sesDinleme', label: '🎙️ Canlı Ses Dinleme' },
         { key: 'automod', label: '🛡️ AutoMod Koruması' },
         { key: 'seviye', label: '🏆 Seviye & XP' },
         { key: 'karsilama', label: '🖼️ Giriş-Çıkış Kartları' },
         { key: 'nobet', label: '⏱️ Ses Nöbet Takibi' },
-        { key: 'loa', label: '📝 İzin / Mazeret (LOA)' },
-        { key: 'operasyon', label: '🎯 Operasyon Planlayıcı' }
+        { key: 'loa', label: '📝 İzin / Mazeret (LOA)' }
     ];
 
     const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -897,7 +795,7 @@
         el.className = 'toast' + (err ? ' error' : '');
         el.textContent = msg;
         document.getElementById('toast-container').appendChild(el);
-        setTimeout(() => el.remove(), 4000);
+        setTimeout(() => el.remove(), 4500);
     }
 
     async function apiFetch(url, opt = {}) {
@@ -908,11 +806,27 @@
         return data;
     }
 
+    function gorselDosyaYukle(fileInput, targetInputId, previewImgId = null) {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async () => {
+            try {
+                const res = await apiFetch('/api/upload-gorsel', { method: 'POST', body: JSON.stringify({ dataUrl: reader.result, dosyaAdi: file.name }) });
+                document.getElementById(targetInputId).value = res.url;
+                if (previewImgId) {
+                    const img = document.getElementById(previewImgId);
+                    img.src = res.url; img.style.display = 'block';
+                }
+                toastGoster('🖼️ Görsel (.png/.jpg) yüklendi! Kaydet butonuna basmayı unutmayın.');
+            } catch (e) { toastGoster('❌ Görsel yüklenemedi: ' + e.message, true); }
+        };
+        reader.readAsDataURL(file);
+    }
+
     (function initAuth() {
         const p = new URLSearchParams(window.location.search);
-        if (p.get('auth_error')) {
-            const b = document.getElementById('auth-error-box'); b.style.display = 'block'; b.textContent = '❌ ' + p.get('auth_error');
-        }
+        if (p.get('auth_error')) { const b = document.getElementById('auth-error-box'); b.style.display = 'block'; b.textContent = '❌ ' + p.get('auth_error'); }
         if (p.get('token')) {
             authToken = p.get('token');
             currentUser = { id: p.get('id'), username: p.get('username'), avatar: p.get('avatar') };
@@ -964,16 +878,9 @@
     function temaUygula(t) {
         if (!t) return;
         const r = document.documentElement.style;
-        r.setProperty('--primary', t.primary || '#3b82f6');
-        r.setProperty('--accent', t.accent || '#10b981');
-        const paletler = {
-            navy: ['#090d16', '#0e1420', '#131b2b'],
-            olive: ['#0f1410', '#151c16', '#1c261d'],
-            crimson: ['#140b0e', '#1c1014', '#26151b'],
-            purple: ['#0f0b17', '#161022', '#1e152e']
-        };
-        const p = paletler[t.palet] || paletler.navy;
-        r.setProperty('--bg-main', p[0]); r.setProperty('--bg-sidebar', p[1]); r.setProperty('--bg-card', p[2]);
+        r.setProperty('--primary', t.primary || '#3b82f6'); r.setProperty('--accent', t.accent || '#10b981');
+        const pal = { navy:['#090d16','#0e1420','#131b2b'], olive:['#0f1410','#151c16','#1c261d'], crimson:['#140b0e','#1c1014','#26151b'], purple:['#0f0b17','#161022','#1e152e'] }[t.palet] || ['#090d16','#0e1420','#131b2b'];
+        r.setProperty('--bg-main', pal[0]); r.setProperty('--bg-sidebar', pal[1]); r.setProperty('--bg-card', pal[2]);
         document.getElementById('brand-title').textContent = t.baslik || 'ORDU YÖNETİMİ';
         document.getElementById('brand-subtitle').textContent = t.altBaslik || 'KOMUTA & KONTROL PANELİ';
     }
@@ -988,14 +895,10 @@
 
     function robloxRolDropdownDoldur(roller) {
         const sel = document.getElementById('web-roblox-role');
-        const uygunlar = (roller || []).filter(x => x.rank > 0 && x.rank < 255);
-        if (uygunlar.length > 0) {
-            sel.innerHTML = '<option value="">-- Verilecek Rütbeyi Seçin --</option>' +
-                uygunlar.map(x => `<option value="${x.id}">[${x.rank}] ${esc(x.name)}</option>`).join('');
-        } else {
-            sel.innerHTML = '<option value="">-- TSF Rütbesi Seçin --</option>' +
-                (geciciRutbeler || []).map(r => `<option value="${esc(r.ad)}">${esc(r.ad)} (${esc(r.sinif)})</option>`).join('');
-        }
+        const uygun = (roller || []).filter(x => x.rank > 0 && x.rank < 255);
+        sel.innerHTML = uygun.length
+            ? '<option value="">-- Verilecek Rütbeyi Seçin --</option>' + uygun.map(x => `<option value="${x.id}">[${x.rank}] ${esc(x.name)}</option>`).join('')
+            : '<option value="">-- TSF Rütbesi Seçin --</option>' + (geciciRutbeler || []).map(r => `<option value="${esc(r.ad)}">${esc(r.ad)}</option>`).join('');
     }
 
     async function panelVerileriniYukle() {
@@ -1013,8 +916,10 @@
         document.getElementById('stat-cevrimici').textContent = `${d.cevrimiciUye} çevrimiçi`;
         document.getElementById('stat-memnuniyet').textContent = `%${d.ticketIstatistik.memnuniyetOrani}`;
         document.getElementById('stat-puan').textContent = `${d.ticketIstatistik.ortalamaPuan} ★ Ortalama`;
-        document.getElementById('stat-bilet').textContent = `${d.ticketIstatistik.acikSayisi} / ${d.ticketIstatistik.kapaliSayisi}`;
+        document.getElementById('stat-opus').textContent = d.sesDiagnostik?.opusMotoru || 'YOK';
+        document.getElementById('stat-bulut').textContent = d.sesDiagnostik?.bulutDb ? '☁️ Firebase Bulut Aktif' : '💾 Yerel Veritabanı';
         document.getElementById('stat-uptime').textContent = `${Math.floor(d.uptimeSaniye / 60)} dk`;
+        document.getElementById('stat-bilet').textContent = `${d.ticketIstatistik.acikSayisi} Açık / ${d.ticketIstatistik.kapaliSayisi} Kapalı Bilet`;
 
         document.getElementById('terfi-onerileri-body').innerHTML = (d.terfiOnerileri || []).map(t => `
             <tr><td><strong>${esc(t.username)}</strong></td><td>${esc(t.mevcutRutbe)}</td><td><span class="badge badge-green">${esc(t.onerilenRutbe)}</span></td><td>Seviye ${t.seviye}</td><td>${t.nobetDk} dk</td></tr>
@@ -1026,22 +931,24 @@
         selectDoldur('.role-select', d.roller, '-- Rol --');
         selectDoldur('.member-select', d.uyeler, '-- Personel Seçin --');
 
-        // Rütbe & Roblox Dropdown Otomatik Doldurma
+        // Rütbe & Sınav
         document.getElementById('inp-robloxGrupId').value = a.robloxGrupId || '';
         document.getElementById('inp-rutbeYetkiliRol').value = a.rutbeYetkiliRol || '';
+        document.getElementById('inp-sinavBaraj').value = a.sinavAyar?.gecmeYuzdesi || 80;
+        document.getElementById('inp-sinavHedef').value = a.sinavAyar?.terfiHedefRutbe || '[Or-2] Onbaşı';
         geciciRutbeler = JSON.parse(JSON.stringify(a.tsfRutbeler || []));
         rutbeleriCiz();
         robloxRolDropdownDoldur(d.robloxRoller || []);
 
-        // AI
+        // AI & Özel Komutlar
         document.getElementById('inp-aiAktif').checked = !!a.aiAktif;
         document.getElementById('inp-prefix').value = a.prefix || '!';
         document.getElementById('inp-aiBaglam').value = a.aiBaglamMesajSayisi || 10;
         document.getElementById('inp-aiSistemTalimati').value = a.aiSistemTalimati || '';
         const izinli = new Set(a.aiIzinliKanallar || []);
-        document.getElementById('ai-kanallar-grid').innerHTML = (d.metinKanallari || []).map(c => `
-            <label class="checkbox-item"><input type="checkbox" class="ai-kanal-cb" value="${c.id}" ${izinli.has(c.id) ? 'checked' : ''}> ${esc(c.name)}</label>
-        `).join('');
+        document.getElementById('ai-kanallar-grid').innerHTML = (d.metinKanallari || []).map(c => `<label class="checkbox-item"><input type="checkbox" class="ai-kanal-cb" value="${c.id}" ${izinli.has(c.id)?'checked':''}> ${esc(c.name)}</label>`).join('');
+        geciciOzelKomutlar = JSON.parse(JSON.stringify(a.ozelKomutlar || []));
+        ozelKomutlariCiz();
 
         // Ticket
         document.getElementById('t-stat-toplam').textContent = d.ticketIstatistik.toplamSayisi;
@@ -1053,66 +960,57 @@
         document.getElementById('inp-ticketPanelGorselUrl').value = a.ticketPanelGorselUrl || '';
         document.getElementById('inp-ticketPanelRenk').value = a.ticketPanelRenk || '#3b82f6';
         document.getElementById('inp-ticketAiAktif').checked = !!a.ticketAiAktif;
+        if (a.ticketPanelGorselUrl) { const img = document.getElementById('ticket-gorsel-prev'); img.src = a.ticketPanelGorselUrl; img.style.display = 'block'; }
 
-        document.getElementById('yetkili-karnesi-body').innerHTML = (d.yetkiliKarnesi || []).map(y => `
-            <tr><td><strong>${esc(y.yetkili)}</strong></td><td><span class="badge badge-blue">${y.cozulmus} Bilet</span></td><td><span class="badge badge-amber">${y.ortalama} ★ (${y.puanSayisi})</span></td>
-            <td>${y.yorumlar.slice(0,2).map(m => `<div><small>"${esc(m.yorum)}"</small></div>`).join('') || '-'}</td></tr>
-        `).join('') || '<tr><td colspan="4" style="color:var(--text-dim);">Kayıt yok.</td></tr>';
+        document.getElementById('yetkili-karnesi-body').innerHTML = (d.yetkiliKarnesi || []).map(y => `<tr><td><strong>${esc(y.yetkili)}</strong></td><td><span class="badge badge-blue">${y.cozulmus}</span></td><td><span class="badge badge-amber">${y.ortalama} ★</span></td><td><small>${esc(y.yorumlar[0]?.yorum || '-')}</small></td></tr>`).join('') || '<tr><td colspan="4" style="color:var(--text-dim);">Kayıt yok.</td></tr>';
+        document.getElementById('acik-biletler-body').innerHTML = (d.acikBiletler || []).map(b => `<tr><td><code>#${esc(b.kanalAdi)}</code></td><td>${esc(b.konu)}</td><td>${esc(b.ustlenenTag)}</td><td><button class="btn btn-secondary btn-sm" onclick="acikBiletOku('${b.kanalId}')">👁️</button></td></tr>`).join('') || '<tr><td colspan="4" style="color:var(--text-dim);">Açık bilet yok.</td></tr>';
+        document.getElementById('ticket-arsiv-body').innerHTML = (a.kapatilanBiletler || []).map((b, i) => `<tr><td><code>#${esc(b.kanalAdi)}</code></td><td>${esc(b.konu)}</td><td>${esc(b.ustlenenTag||b.kapatan)}</td><td>${b.puan?`<span class="badge badge-amber">${b.puan} ★</span> `:''}<small>${esc(b.yorum||'-')}</small></td><td>${esc(b.kapanisTarihi)}</td><td><button class="btn btn-secondary btn-sm" onclick="kapaliBiletOku(${i})">👁️ Oku</button></td></tr>`).join('') || '<tr><td colspan="6" style="color:var(--text-dim);">Kapalı bilet yok.</td></tr>';
 
-        document.getElementById('acik-biletler-body').innerHTML = (d.acikBiletler || []).map(b => `
-            <tr><td><code>#${esc(b.kanalAdi)}</code></td><td>${esc(b.sahipTag)}<br><small>${esc(b.konu)}</small></td><td>${esc(b.ustlenenTag)}</td>
-            <td><button class="btn btn-secondary btn-sm" onclick="acikBiletOku('${b.kanalId}')">👁️ Canlı Oku</button></td></tr>
-        `).join('') || '<tr><td colspan="4" style="color:var(--text-dim);">Açık bilet yok.</td></tr>';
-
-        document.getElementById('ticket-arsiv-body').innerHTML = (a.kapatilanBiletler || []).map((b, i) => `
-            <tr><td><code>#${esc(b.kanalAdi)}</code></td><td>${esc(b.konu)}</td><td>${esc(b.ustlenenTag || b.kapatan)}</td>
-            <td>${b.puan ? `<span class="badge badge-amber">${b.puan} ★</span> ` : ''}<small>${esc(b.yorum || '-')}</small></td>
-            <td>${esc(b.kapanisTarihi)}</td><td><button class="btn btn-secondary btn-sm" onclick="kapaliBiletOku(${i})">👁️ Oku</button></td></tr>
-        `).join('') || '<tr><td colspan="6" style="color:var(--text-dim);">Kapalı bilet yok.</td></tr>';
-
-        // Ses & Kayıtlar
+        // Ses
+        document.getElementById('inp-sesArsivKanal').value = a.sesArsivKanal || '';
         document.getElementById('ses-panel-kategori').value = a.ozelSesKategori || '';
         sesDurumuGuncelle(d.aktifSes);
         document.getElementById('ses-kayitlar-body').innerHTML = (d.kayitlar || []).map(k => `
             <tr><td><strong>🔊 ${esc(k.kanalAdi)}</strong></td><td>${esc(k.tarih)}</td><td>${k.sureSaniye} sn</td>
-            <td><audio controls preload="none" src="/kayitlar/${encodeURIComponent(k.dosyaAdi)}" style="height:30px;max-width:200px;"></audio></td>
+            <td><audio controls preload="none" src="/api/ses-kayit/${encodeURIComponent(k.id)}/dosya" style="height:30px;max-width:210px;"></audio></td>
             <td>
                 <button class="btn btn-primary btn-sm" onclick="aiTutanakCikar('${k.id}')">🤖 AI Tutanak</button>
-                <a href="/kayitlar/${encodeURIComponent(k.dosyaAdi)}" download class="btn btn-secondary btn-sm">⬇️</a>
+                <a href="/api/ses-kayit/${encodeURIComponent(k.id)}/dosya" download="${esc(k.dosyaAdi)}" class="btn btn-secondary btn-sm">⬇️</a>
                 <button class="btn btn-danger btn-sm" onclick="sesKayitSil('${k.id}')">🗑️</button>
             </td></tr>
         `).join('') || '<tr><td colspan="5" style="color:var(--text-dim);">Kayıt yok.</td></tr>';
 
+        // Çekilişler
+        document.getElementById('cekilisler-body').innerHTML = (a.cekilisler || []).map(c => `
+            <tr><td><code>${esc(c.id)}</code></td><td><strong>${esc(c.odul)}</strong></td><td>${(c.katilanlar||[]).length} kişi</td>
+            <td><span class="badge ${c.bitti?'badge-green':'badge-amber'}">${c.bitti ? 'TAMAMLANDI' : 'DEVAM EDİYOR'}</span></td>
+            <td>
+                ${!c.bitti ? `<button class="btn btn-warning btn-sm" onclick="cekilisAksiyon('${c.id}','bitir')">⏹️ Bitir</button>` : `<button class="btn btn-primary btn-sm" onclick="cekilisAksiyon('${c.id}','reroll')">🎲 Reroll</button>`}
+                <button class="btn btn-danger btn-sm" onclick="cekilisAksiyon('${c.id}','sil')">🗑️</button>
+            </td></tr>
+        `).join('') || '<tr><td colspan="5" style="color:var(--text-dim);">Henüz çekiliş yok.</td></tr>';
+
         // Nöbet & LOA
         const nobetListe = Object.values(a.nobetSureleri || {}).sort((x, y) => y.toplamSaniye - x.toplamSaniye);
-        document.getElementById('nobet-body').innerHTML = nobetListe.map(n => `
-            <tr><td><strong>${esc(n.username)}</strong></td><td><span class="badge badge-green">${Math.floor(n.toplamSaniye/3600)}s ${Math.floor((n.toplamSaniye%3600)/60)}dk</span></td><td>${esc(n.sonGuncelleme || '-')}</td></tr>
-        `).join('') || '<tr><td colspan="3" style="color:var(--text-dim);">Henüz ses nöbeti kaydı yok.</td></tr>';
+        document.getElementById('nobet-body').innerHTML = nobetListe.map(n => `<tr><td><strong>${esc(n.username)}</strong></td><td><span class="badge badge-green">${Math.floor(n.toplamSaniye/3600)}s ${Math.floor((n.toplamSaniye%3600)/60)}dk</span></td><td>${esc(n.sonGuncelleme||'-')}</td></tr>`).join('') || '<tr><td colspan="3" style="color:var(--text-dim);">Kayıt yok.</td></tr>';
+        document.getElementById('loa-body').innerHTML = (a.loaTalepleri || []).map(l => `<tr><td><strong>${esc(l.username)}</strong></td><td>${l.gun} Gün</td><td>${esc(l.sebep)}</td><td><span class="badge ${l.durum==='onaylandi'?'badge-green':(l.durum==='reddedildi'?'badge-red':'badge-amber')}">${esc(l.durum.toUpperCase())}</span></td><td>${l.durum==='beklemede'?`<button class="btn btn-success btn-sm" onclick="loaDurum('${l.id}','onaylandi')">✓</button> <button class="btn btn-danger btn-sm" onclick="loaDurum('${l.id}','reddedildi')">✕</button>`:esc(l.yetkili||'-')}</td></tr>`).join('') || '<tr><td colspan="5" style="color:var(--text-dim);">Talep yok.</td></tr>';
 
-        document.getElementById('loa-body').innerHTML = (a.loaTalepleri || []).map(l => `
-            <tr><td><strong>${esc(l.username)}</strong></td><td>${l.gun} Gün</td><td>${esc(l.sebep)}</td>
-            <td><span class="badge ${l.durum==='onaylandi'?'badge-green':(l.durum==='reddedildi'?'badge-red':'badge-amber')}">${esc(l.durum.toUpperCase())}</span></td>
-            <td>${l.durum==='beklemede' ? `<button class="btn btn-success btn-sm" onclick="loaDurum('${l.id}','onaylandi')">✓ Onayla</button> <button class="btn btn-danger btn-sm" onclick="loaDurum('${l.id}','reddedildi')">✕ Reddet</button>` : esc(l.yetkili || '-')}</td></tr>
-        `).join('') || '<tr><td colspan="5" style="color:var(--text-dim);">İzin talebi yok.</td></tr>';
-
-        // AutoMod & Uyarılar
+        // AutoMod, AI Mod, Uyarı Merdiveni & Kara Liste
+        document.getElementById('inp-aiModerasyonAktif').checked = a.automod?.aiModerasyonAktif !== false;
         document.getElementById('inp-kufurEngel').checked = !!a.automod?.kufurEngel;
         document.getElementById('inp-linkEngel').checked = !!a.automod?.linkEngel;
         document.getElementById('inp-capsEngel').checked = !!a.automod?.capsEngel;
         document.getElementById('inp-spamEngel').checked = !!a.automod?.spamEngel;
-        document.getElementById('inp-tekrarMesajEngel').checked = a.automod?.tekrarMesajEngel !== false;
-        document.getElementById('inp-cezaAksiyonu').value = a.automod?.cezaAksiyonu || 'sil_uyar';
-        document.getElementById('inp-timeoutDakika').value = a.automod?.timeoutDakika || 5;
-        document.getElementById('inp-otoCezaEsik').value = a.automod?.otoCezaEsik || 3;
+        document.getElementById('inp-cezaAksiyonu').value = a.automod?.cezaAksiyonu || 'uyari_merdiveni';
         document.getElementById('inp-yeniHesapGun').value = a.automod?.yeniHesapKorumaGun || 0;
         document.getElementById('inp-muafRol').value = a.automod?.muafRol || '';
+        document.getElementById('inp-karaListeOtoBan').checked = !!a.karaListeOtoBan;
         geciciYasakliKelimeler = [...(a.automod?.yasakliKelimeler || [])];
         yasakliKelimeleriCiz();
+        geciciUyariKurallari = JSON.parse(JSON.stringify(a.automod?.uyariKurallari || []));
+        uyariKurallariCiz();
 
-        document.getElementById('uyarilar-body').innerHTML = (a.uyarilar || []).slice(0, 30).map(u => `
-            <tr><td><strong>${esc(u.kullaniciTag)}</strong></td><td>${esc(u.sebep)}</td><td>${esc(u.yetkili)}</td>
-            <td><button class="btn btn-danger btn-sm" onclick="uyariSil('${u.id}')">Sil</button></td></tr>
-        `).join('') || '<tr><td colspan="4" style="color:var(--text-dim);">Kayıtlı uyarı yok.</td></tr>';
+        document.getElementById('karaliste-body').innerHTML = (a.karaListe || []).map(k => `<tr><td><code>${esc(k.discordId||'-')}</code></td><td><strong>${esc(k.robloxUsername||'-')}</strong></td><td>${esc(k.sebep)}</td><td>${esc(k.yetkili)}</td><td><button class="btn btn-danger btn-sm" onclick="karaListeSil('${k.id}')">Sil</button></td></tr>`).join('') || '<tr><td colspan="5" style="color:var(--text-dim);">Kara liste boş.</td></tr>';
 
         // Loglar & Kartlar
         document.getElementById('inp-modLogKanal').value = a.modLogKanal || '';
@@ -1132,89 +1030,110 @@
         document.getElementById('inp-temaPrimary').value = a.tema?.primary || '#3b82f6';
         document.getElementById('inp-temaAccent').value = a.tema?.accent || '#10b981';
         document.getElementById('inp-temaPalet').value = a.tema?.palet || 'navy';
-        document.getElementById('moduller-grid').innerHTML = MODUL_LISTESI.map(m => `
-            <div class="switch-row"><div class="switch-row-info"><strong>${m.label}</strong></div>
-            <label class="toggle-switch"><input type="checkbox" class="modul-cb" data-key="${m.key}" ${a.moduller?.[m.key] !== false ? 'checked' : ''}><span class="toggle-slider"></span></label></div>
-        `).join('');
+        document.getElementById('moduller-grid').innerHTML = MODUL_LISTESI.map(m => `<div class="switch-row"><div class="switch-row-info"><strong>${m.label}</strong></div><label class="toggle-switch"><input type="checkbox" class="modul-cb" data-key="${m.key}" ${a.moduller?.[m.key]!==false?'checked':''}><span class="toggle-slider"></span></label></div>`).join('');
 
         denetimTablosuCiz();
     }
 
     async function ayarKaydet(yeniAyarlar, aciklama) {
-        await apiFetch('/api/ayarlar', { method: 'POST', body: JSON.stringify({ guildId: currentGuildId, yeniAyarlar, aciklama }) });
-        toastGoster('✅ ' + aciklama);
-        await panelVerileriniYukle();
+        try {
+            await apiFetch('/api/ayarlar', { method: 'POST', body: JSON.stringify({ guildId: currentGuildId, yeniAyarlar, aciklama }) });
+            toastGoster('✅ ' + aciklama);
+            await panelVerileriniYukle();
+        } catch (e) { toastGoster('❌ ' + e.message, true); }
     }
 
-    // Rütbe Hiyerarşi & Sicil
+    // Rütbe, Sicil, Madalya
     function rutbeleriCiz() {
         document.getElementById('tsf-rutbe-body').innerHTML = geciciRutbeler.map((r, i) => `
             <tr><td>${i+1}</td><td><strong>${esc(r.ad)}</strong></td><td><span class="badge badge-blue">${esc(r.sinif)}</span></td>
-            <td>
-                <button class="btn btn-secondary btn-sm" onclick="rutbeTasi(${i},-1)">↑</button>
-                <button class="btn btn-secondary btn-sm" onclick="rutbeTasi(${i},1)">↓</button>
-                <button class="btn btn-danger btn-sm" onclick="geciciRutbeler.splice(${i},1);rutbeleriCiz()">Sil</button>
-            </td></tr>
+            <td><button class="btn btn-secondary btn-sm" onclick="rutbeTasi(${i},-1)">↑</button> <button class="btn btn-secondary btn-sm" onclick="rutbeTasi(${i},1)">↓</button> <button class="btn btn-danger btn-sm" onclick="geciciRutbeler.splice(${i},1);rutbeleriCiz()">Sil</button></td></tr>
         `).join('');
     }
-    function rutbeTasi(i, yon) {
-        const hedef = i + yon;
-        if (hedef < 0 || hedef >= geciciRutbeler.length) return;
-        [geciciRutbeler[i], geciciRutbeler[hedef]] = [geciciRutbeler[hedef], geciciRutbeler[i]];
-        rutbeleriCiz();
-    }
-    function rutbeEkle() {
-        const ad = document.getElementById('yeni-rutbe-ad').value.trim();
-        if (!ad) return;
-        geciciRutbeler.push({ ad, sinif: document.getElementById('yeni-rutbe-sinif').value });
-        document.getElementById('yeni-rutbe-ad').value = '';
-        rutbeleriCiz();
-    }
+    function rutbeTasi(i, yon) { const h = i + yon; if (h < 0 || h >= geciciRutbeler.length) return; [geciciRutbeler[i], geciciRutbeler[h]] = [geciciRutbeler[h], geciciRutbeler[i]]; rutbeleriCiz(); }
+    function rutbeEkle() { const ad = document.getElementById('yeni-rutbe-ad').value.trim(); if (!ad) return; geciciRutbeler.push({ ad, sinif: document.getElementById('yeni-rutbe-sinif').value }); document.getElementById('yeni-rutbe-ad').value = ''; rutbeleriCiz(); }
     function rutbeAyarKaydet() {
-        ayarKaydet({ robloxGrupId: document.getElementById('inp-robloxGrupId').value, rutbeYetkiliRol: document.getElementById('inp-rutbeYetkiliRol').value, tsfRutbeler: geciciRutbeler }, 'TSF rütbe hiyerarşisi kaydedildi.');
+        ayarKaydet({
+            robloxGrupId: document.getElementById('inp-robloxGrupId').value,
+            rutbeYetkiliRol: document.getElementById('inp-rutbeYetkiliRol').value,
+            tsfRutbeler: geciciRutbeler,
+            sinavAyar: { gecmeYuzdesi: Number(document.getElementById('inp-sinavBaraj').value)||80, terfiHedefRutbe: document.getElementById('inp-sinavHedef').value.trim()||'[Or-2] Onbaşı' }
+        }, 'TSF Rütbe ve Sınav ayarları kaydedildi.');
     }
     async function sicilSorgula() {
         const uid = document.getElementById('sicil-uye-select').value;
         if (!uid) return toastGoster('Personel seçin.', true);
         const s = await apiFetch(`/api/sicil/${currentGuildId}/${uid}`);
         document.getElementById('sicil-kart-alani').innerHTML = `
-            <div style="display:flex; gap:14px; align-items:center;">
-                <img src="${esc(s.avatar)}" style="width:60px;height:60px;border-radius:12px;">
+            <div style="display:flex; gap:14px; align-items:flex-start;">
+                <img src="${esc(s.avatar)}" style="width:58px;height:58px;border-radius:12px;">
                 <div>
                     <h4 style="color:#fff;">${esc(s.displayName)} <small style="color:var(--text-muted);">(${esc(s.tag)})</small></h4>
-                    <div style="margin-top:4px;"><span class="badge badge-amber">${esc(s.enYuksekRutbe)}</span> <span class="badge badge-purple">Seviye ${s.seviye} (${s.xp} XP)</span> <span class="badge badge-green">Nöbet: ${s.nobetDakika} dk</span> <span class="badge badge-red">Uyarı: ${s.uyariSayisi}</span></div>
-                    <div style="margin-top:6px; font-size:12px;"><strong>Roller:</strong> ${esc((s.roller||[]).join(', ') || 'Yok')}</div>
+                    <div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:5px;">
+                        <span class="badge badge-amber">${esc(s.enYuksekRutbe)}</span>
+                        <span class="badge badge-blue">Roblox: ${esc(s.robloxUsername || 'Bağlı Değil')}</span>
+                        <span class="badge badge-purple">Seviye ${s.seviye}</span>
+                        <span class="badge badge-green">Nöbet: ${s.nobetDakika} dk</span>
+                        <span class="badge badge-red">Uyarı: ${s.uyariSayisi}</span>
+                    </div>
+                    <div style="margin-top:6px; font-size:12px;"><strong>🏅 Madalyalar:</strong> ${esc((s.madalyalar||[]).map(m=>m.ad).join(', ') || 'Yok')}</div>
+                    <div style="margin-top:3px; font-size:12px;"><strong>⚖️ Disiplin:</strong> ${esc((s.disiplin||[]).map(d=>`[${d.tur}] ${d.sebep}`).join(' | ') || 'Temiz')}</div>
                 </div>
             </div>`;
     }
+    async function madalyaVerUI() {
+        const userId = document.getElementById('sicil-uye-select').value, ad = document.getElementById('madalya-ad').value.trim();
+        if (!userId || !ad) return toastGoster('Personel ve madalya adı seçin.', true);
+        await apiFetch('/api/sicil/madalya', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, userId, ad }) });
+        document.getElementById('madalya-ad').value = ''; toastGoster('🏅 Madalya verildi!'); sicilSorgula();
+    }
+    async function disiplinEkleUI() {
+        const userId = document.getElementById('sicil-uye-select').value, tur = document.getElementById('disiplin-tur').value, sebep = document.getElementById('disiplin-sebep').value.trim();
+        if (!userId || !sebep) return toastGoster('Personel ve sebep girin.', true);
+        await apiFetch('/api/sicil/disiplin', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, userId, tur, sebep }) });
+        document.getElementById('disiplin-sebep').value = ''; toastGoster('⚖️ Disiplin kaydı işlendi.'); sicilSorgula();
+    }
     async function robloxRolleriYukle(y) {
-        try {
-            const r = await apiFetch(`/api/roblox/roller/${currentGuildId}?yenile=${y?1:0}`);
-            robloxRolDropdownDoldur(r.roller || []);
-            if (y) toastGoster('🔄 TSF Roblox rütbeleri güncellendi.');
-        } catch (e) {
-            robloxRolDropdownDoldur([]);
-            if (y) toastGoster('Roblox API yanıt vermedi, TSF listesi yüklendi.', true);
-        }
+        try { const r = await apiFetch(`/api/roblox/roller/${currentGuildId}?yenile=${y?1:0}`); robloxRolDropdownDoldur(r.roller||[]); if (y) toastGoster('🔄 Rütbeler güncellendi.'); }
+        catch { robloxRolDropdownDoldur([]); }
     }
     async function webPanelRutbeVer() {
         try {
             const res = await apiFetch('/api/roblox/rutbe-ver', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, robloxKullaniciAdi: document.getElementById('web-roblox-user').value, hedefRolId: document.getElementById('web-roblox-role').value }) });
             toastGoster('🎖️ ' + res.mesaj);
-            await panelVerileriniYukle();
-        } catch (e) { toastGoster(e.message, true); }
+        } catch (e) { toastGoster('❌ ' + e.message, true); }
     }
 
-    // AI
-    function aiAyarKaydet() {
+    // Özel Komutlar (!XXXXX) & AI
+    function ozelKomutlariCiz() {
+        document.getElementById('ozel-komutlar-body').innerHTML = geciciOzelKomutlar.map((k, i) => `
+            <tr><td><code>!${esc(k.tetikleyici)}</code></td><td>${esc(k.cevapMetni)}</td><td><small>${esc(k.url||'-')}</small></td>
+            <td><span class="badge badge-blue">${k.embedOlsun!==false?'Embed':'Düz'}</span></td>
+            <td><button class="btn btn-danger btn-sm" onclick="geciciOzelKomutlar.splice(${i},1);ozelKomutlariCiz()">Sil</button></td></tr>
+        `).join('') || '<tr><td colspan="5" style="color:var(--text-dim);">Özel komut yok.</td></tr>';
+    }
+    function ozelKomutEkle() {
+        const tetikleyici = document.getElementById('ok-tetikleyici').value.trim().replace(/^!/, '').toLowerCase();
+        const cevapMetni = document.getElementById('ok-cevap').value.trim();
+        const url = document.getElementById('ok-url').value.trim();
+        if (!tetikleyici || (!cevapMetni && !url)) return toastGoster('Komut adı ve cevap/URL girmelisiniz.', true);
+        geciciOzelKomutlar.push({
+            id: 'ok_' + Date.now(), tetikleyici, cevapMetni, url,
+            butonMetni: document.getElementById('ok-buton').value.trim() || '🔗 Bağlantıya Git',
+            gorselUrl: document.getElementById('ok-gorsel').value.trim(),
+            embedOlsun: document.getElementById('ok-embed').value === '1'
+        });
+        document.getElementById('ok-tetikleyici').value = ''; document.getElementById('ok-cevap').value = ''; document.getElementById('ok-url').value = '';
+        ozelKomutlariCiz();
+        toastGoster('Komut eklendi. Kaydetmek için yukarıdaki "AI & Özel Komutları Kaydet" butonuna basın.');
+    }
+    function aiVeKomutKaydet() {
         const aiIzinliKanallar = Array.from(document.querySelectorAll('.ai-kanal-cb:checked')).map(c => c.value);
         ayarKaydet({
-            aiAktif: document.getElementById('inp-aiAktif').checked,
-            prefix: document.getElementById('inp-prefix').value || '!',
-            aiBaglamMesajSayisi: Number(document.getElementById('inp-aiBaglam').value) || 10,
-            aiIzinliKanallar,
-            aiSistemTalimati: document.getElementById('inp-aiSistemTalimati').value
-        }, 'Gelişmiş AI ayarları kaydedildi.');
+            aiAktif: document.getElementById('inp-aiAktif').checked, prefix: document.getElementById('inp-prefix').value || '!',
+            aiBaglamMesajSayisi: Number(document.getElementById('inp-aiBaglam').value)||10, aiIzinliKanallar,
+            aiSistemTalimati: document.getElementById('inp-aiSistemTalimati').value, ozelKomutlar: geciciOzelKomutlar
+        }, 'AI ve Özel Komutlar (!XXXXX) kaydedildi.');
     }
     async function aiTestEt() {
         document.getElementById('ai-test-cevap').textContent = '⏳ Yanıt üretiliyor...';
@@ -1225,36 +1144,27 @@
     // Ticket
     function ticketAyarKaydet() {
         ayarKaydet({
-            ticketKategori: document.getElementById('inp-ticketKategori').value,
-            ticketYetkiliRol: document.getElementById('inp-ticketYetkiliRol').value,
-            ticketPanelGorselUrl: document.getElementById('inp-ticketPanelGorselUrl').value,
-            ticketPanelRenk: document.getElementById('inp-ticketPanelRenk').value,
+            ticketKategori: document.getElementById('inp-ticketKategori').value, ticketYetkiliRol: document.getElementById('inp-ticketYetkiliRol').value,
+            ticketPanelGorselUrl: document.getElementById('inp-ticketPanelGorselUrl').value, ticketPanelRenk: document.getElementById('inp-ticketPanelRenk').value,
             ticketAiAktif: document.getElementById('inp-ticketAiAktif').checked
         }, 'Ticket ayarları kaydedildi.');
     }
     async function ticketMenusuKur() {
-        await apiFetch('/api/ticket-kur', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, kanalId: document.getElementById('ticket-kur-kanal').value, gorselUrl: document.getElementById('inp-ticketPanelGorselUrl').value, renk: document.getElementById('inp-ticketPanelRenk').value }) });
-        toastGoster('✅ Ticket menüsü kuruldu!');
+        try {
+            await apiFetch('/api/ticket-kur', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, kanalId: document.getElementById('ticket-kur-kanal').value, gorselUrl: document.getElementById('inp-ticketPanelGorselUrl').value, renk: document.getElementById('inp-ticketPanelRenk').value }) });
+            toastGoster('✅ Görselli Ticket menüsü kuruldu!');
+        } catch (e) { toastGoster('❌ ' + e.message, true); }
     }
-    async function acikBiletOku(kanalId) {
-        const d = await apiFetch(`/api/ticket/acik/${currentGuildId}/${kanalId}`);
-        modalAc(`🟢 Canlı Bilet: #${d.kanalAdi}`, d.mesajlar);
-    }
-    function kapaliBiletOku(i) {
-        const b = panelData.ayarlar.kapatilanBiletler[i];
-        modalAc(`🗄️ Arşiv: #${b.kanalAdi} (${b.puan ? b.puan+' ★' : 'Puansız'})`, b.mesajlar);
-    }
+    async function acikBiletOku(kanalId) { const d = await apiFetch(`/api/ticket/acik/${currentGuildId}/${kanalId}`); modalAc(`🟢 Canlı Bilet: #${d.kanalAdi}`, d.mesajlar); }
+    function kapaliBiletOku(i) { const b = panelData.ayarlar.kapatilanBiletler[i]; modalAc(`🗄️ Arşiv: #${b.kanalAdi}`, b.mesajlar); }
     function modalAc(baslik, mesajlar) {
         document.getElementById('modal-title').textContent = baslik;
-        document.getElementById('modal-body').innerHTML = (mesajlar || []).map(m => `
-            <div class="transcript-msg"><strong>${esc(m.yazar)}</strong> <small style="color:var(--text-muted);">${esc(m.zaman)}</small>
-            <div style="margin-top:4px;">${esc(m.icerik)}</div>
-            ${(m.ekler||[]).map(u => `<a href="${esc(u)}" target="_blank"><img src="${esc(u)}" style="max-width:100%;max-height:180px;border-radius:6px;margin-top:6px;"></a>`).join('')}</div>
-        `).join('') || '<p>Mesaj yok.</p>';
+        document.getElementById('modal-body').innerHTML = (mesajlar||[]).map(m => `<div class="transcript-msg"><strong>${esc(m.yazar)}</strong> <small style="color:var(--text-muted);">${esc(m.zaman)}</small><div style="margin-top:4px;">${esc(m.icerik)}</div>${(m.ekler||[]).map(u=>`<a href="${esc(u)}" target="_blank"><img src="${esc(u)}" style="max-width:100%;max-height:180px;border-radius:6px;margin-top:6px;"></a>`).join('')}</div>`).join('') || '<p>Mesaj yok.</p>';
         document.getElementById('genel-modal').classList.add('open');
     }
 
-    // Ses & Özel Oda Paneli
+    // Ses, Arşiv & Canlı TTS Anons
+    function sesArsivAyarKaydet() { ayarKaydet({ sesArsivKanal: document.getElementById('inp-sesArsivKanal').value }, 'Discord WAV Ses Arşiv Kanalı kaydedildi.'); }
     function sesDurumuGuncelle(s) {
         const a = !!s?.aktif;
         document.getElementById('nav-ses-badge').style.display = a ? 'inline-block' : 'none';
@@ -1269,6 +1179,7 @@
         sesEventSource = new EventSource(`/api/ses-dinle/stream/${currentGuildId}?token=${encodeURIComponent(authToken)}`);
         sesEventSource.onmessage = e => {
             const m = JSON.parse(e.data);
+            if (m.paket) document.getElementById('ses-paket-sayac').textContent = `Gelen Ses Paketi: ${m.paket} (Kayıt Aktif)`;
             if (m.type === 'speaking') {
                 if (m.durum) aktifKonusanSet.set(m.userId, m.kullaniciAdi); else aktifKonusanSet.delete(m.userId);
                 document.getElementById('aktif-konusanlar-box').innerHTML = Array.from(aktifKonusanSet.values()).map(ad => `<div class="speaker-pill">🎙️ ${esc(ad)}</div>`).join('') || '<span style="color:var(--text-dim);">Konuşan yok...</span>';
@@ -1288,99 +1199,121 @@
         };
     }
     async function sesDinlemeBaslatUI() {
-        await apiFetch('/api/ses-dinle/baslat', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, kanalId: document.getElementById('ses-kanal-select').value, kayitYap: document.getElementById('ses-kayit-yap').checked }) });
-        toastGoster('🎙️ Dinleme başladı!'); await panelVerileriniYukle();
+        const btn = document.getElementById('btn-ses-baslat'); btn.disabled = true;
+        try {
+            await apiFetch('/api/ses-dinle/baslat', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, kanalId: document.getElementById('ses-kanal-select').value, kayitYap: document.getElementById('ses-kayit-yap').checked }) });
+            toastGoster('🎙️ Dinleme başladı! Konuşmalar kaydediliyor.'); await panelVerileriniYukle();
+        } catch (e) { btn.disabled = false; toastGoster('❌ ' + e.message, true); }
     }
     async function sesDinlemeDurdurUI() {
-        const r = await apiFetch('/api/ses-dinle/durdur', { method:'POST', body: JSON.stringify({ guildId: currentGuildId }) });
-        toastGoster(r.dosyaAdi ? `✅ Kaydedildi: ${r.dosyaAdi}` : '⏹️ Durduruldu.'); await panelVerileriniYukle();
-    }
-    async function sesKayitSil(id) { await apiFetch(`/api/ses-kayit/${id}`, { method:'DELETE' }); toastGoster('Silindi.'); await panelVerileriniYukle(); }
-    async function aiTutanakCikar(id) {
-        toastGoster('🤖 Gemini AI ses kaydını analiz ediyor...');
+        const btn = document.getElementById('btn-ses-durdur'); btn.disabled = true;
         try {
-            const r = await apiFetch(`/api/ses-kayit/${id}/tutanak`, { method:'POST' });
-            document.getElementById('modal-title').textContent = '🤖 AI Toplantı Tutanağı';
-            document.getElementById('modal-body').innerHTML = `<div style="white-space:pre-wrap; line-height:1.6; font-size:13.5px;">${esc(r.tutanak)}</div>`;
-            document.getElementById('genel-modal').classList.add('open');
-        } catch (e) { toastGoster(e.message, true); }
+            const r = await apiFetch('/api/ses-dinle/durdur', { method:'POST', body: JSON.stringify({ guildId: currentGuildId }) });
+            if (r.dosyaAdi) toastGoster(`✅ Kaydedildi: ${r.dosyaAdi} (${r.alinanPaket} paket)`);
+            else toastGoster(`⚠️ Kayıt oluşmadı (Alınan paket: ${r.alinanPaket || 0}). Kanalda mikrofonla konuşulduğundan emin olun.`, true);
+            await panelVerileriniYukle();
+        } catch (e) { btn.disabled = false; toastGoster('❌ ' + e.message, true); }
+    }
+    async function canliAnonsGonder() {
+        try {
+            await apiFetch('/api/ses-anons', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, kanalId: document.getElementById('anons-ses-kanal').value, metin: document.getElementById('anons-metin').value }) });
+            toastGoster('📡 Anons ses kanalında okunuyor!');
+        } catch (e) { toastGoster('❌ ' + e.message, true); }
     }
     async function sesOdasiPanelKur() {
         try {
-            await apiFetch('/api/ses-odasi/panel-kur', { method:'POST', body: JSON.stringify({
-                guildId: currentGuildId,
-                kanalId: document.getElementById('ses-panel-kanal').value,
-                kategoriId: document.getElementById('ses-panel-kategori').value,
-                baslik: document.getElementById('ses-panel-baslik').value,
-                aciklama: document.getElementById('ses-panel-aciklama').value
-            }) });
-            toastGoster('✅ Özel Ses Odası oluşturma paneli metin kanalına kuruldu!');
-        } catch (e) { toastGoster(e.message, true); }
+            await apiFetch('/api/ses-odasi/panel-kur', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, kanalId: document.getElementById('ses-panel-kanal').value, kategoriId: document.getElementById('ses-panel-kategori').value }) });
+            toastGoster('✅ Butonlu Özel Ses Odası paneli metin kanalına kuruldu!');
+        } catch (e) { toastGoster('❌ ' + e.message, true); }
     }
-    async function ozelSesOdasiOlustur() {
-        const uye = document.getElementById('oda-izinli-uye').value;
-        const rol = document.getElementById('oda-izinli-rol').value;
-        const r = await apiFetch('/api/ses-odasi/olustur', { method:'POST', body: JSON.stringify({
-            guildId: currentGuildId, isim: document.getElementById('oda-isim').value,
-            limit: Number(document.getElementById('oda-limit').value) || 0,
-            ozel: document.getElementById('oda-ozel').checked,
-            izinliUyeler: uye ? [uye] : [], izinliRoller: rol ? [rol] : [], otomatikSil: true
-        }) });
-        toastGoster(`🔊 ${r.odaAdi} oluşturuldu!`); await panelVerileriniYukle();
+    async function sesKayitSil(id) { await apiFetch(`/api/ses-kayit/${id}`, { method:'DELETE' }); toastGoster('Silindi.'); await panelVerileriniYukle(); }
+    async function aiTutanakCikar(id) {
+        toastGoster('🤖 Gemini AI tutanak hazırlıyor...');
+        try {
+            const r = await apiFetch(`/api/ses-kayit/${id}/tutanak`, { method:'POST' });
+            document.getElementById('modal-title').textContent = '🤖 AI Toplantı Tutanağı';
+            document.getElementById('modal-body').innerHTML = `<div style="white-space:pre-wrap; line-height:1.6;">${esc(r.tutanak)}</div>`;
+            document.getElementById('genel-modal').classList.add('open');
+        } catch (e) { toastGoster('❌ ' + e.message, true); }
     }
 
-    // Nöbet, LOA, Operasyon, Duyuru, Moderasyon, AutoMod, Tema
-    async function nobetSifirla() { await apiFetch(`/api/nobet/sifirla/${currentGuildId}`, { method:'POST' }); toastGoster('Nöbet süreleri sıfırlandı.'); await panelVerileriniYukle(); }
+    // Çekiliş
+    async function cekilisBaslatUI() {
+        try {
+            await apiFetch('/api/cekilis/baslat', { method:'POST', body: JSON.stringify({
+                guildId: currentGuildId, kanalId: document.getElementById('cek-kanal').value, odul: document.getElementById('cek-odul').value,
+                sureDakika: Number(document.getElementById('cek-sure').value)||60, kazananSayisi: Number(document.getElementById('cek-kazanan').value)||1,
+                sartRolId: document.getElementById('cek-rol').value, sartMinSeviye: Number(document.getElementById('cek-seviye').value)||0,
+                sartMinNobetDk: Number(document.getElementById('cek-nobet').value)||0
+            }) });
+            toastGoster('🎉 Çekiliş başlatıldı!'); await panelVerileriniYukle();
+        } catch (e) { toastGoster('❌ ' + e.message, true); }
+    }
+    async function cekilisAksiyon(id, aksiyon) {
+        await apiFetch(`/api/cekilis/${currentGuildId}/${id}/${aksiyon}`, { method:'POST' });
+        toastGoster('✅ Çekiliş güncellendi.'); await panelVerileriniYukle();
+    }
+
+    // Nöbet, LOA, Operasyon, Duyuru, Moderasyon, Uyarı Merdiveni, Kara Liste
+    async function nobetSifirla() { await apiFetch(`/api/nobet/sifirla/${currentGuildId}`, { method:'POST' }); toastGoster('Nöbet sıfırlandı.'); await panelVerileriniYukle(); }
     async function loaDurum(id, durum) { await apiFetch(`/api/loa/${currentGuildId}/${id}/durum`, { method:'POST', body: JSON.stringify({ durum }) }); toastGoster('LOA güncellendi.'); await panelVerileriniYukle(); }
     async function operasyonOlustur() {
         await apiFetch('/api/operasyon/olustur', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, kanalId: document.getElementById('op-kanal').value, baslik: document.getElementById('op-baslik').value, tarihSaat: document.getElementById('op-tarih').value, aciklama: document.getElementById('op-aciklama').value, etiketle: true }) });
-        toastGoster('🎯 Operasyon duyurusu yayınlandı!'); await panelVerileriniYukle();
+        toastGoster('🎯 Operasyon yayınlandı!'); await panelVerileriniYukle();
     }
     async function duyuruGonder() {
         await apiFetch('/api/duyuru', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, kanalId: document.getElementById('duyuru-kanal').value, baslik: document.getElementById('duyuru-baslik').value, icerik: document.getElementById('duyuru-icerik').value, gorselUrl: document.getElementById('duyuru-gorsel').value, renk: document.getElementById('duyuru-renk').value }) });
-        toastGoster('📢 Duyuru gönderildi!');
+        toastGoster('📢 Duyuru yayınlandı!');
     }
     async function panelModerasyonUygula() {
         try {
-            const res = await apiFetch('/api/moderasyon/islem', { method:'POST', body: JSON.stringify({
-                guildId: currentGuildId,
-                userId: document.getElementById('mod-hedef-uye').value,
-                tur: document.getElementById('mod-islem-tur').value,
-                dakika: Number(document.getElementById('mod-sure-dk').value) || 10,
-                sebep: document.getElementById('mod-sebep').value
-            }) });
-            toastGoster('⚖️ ' + res.mesaj);
-            await panelVerileriniYukle();
-        } catch (e) { toastGoster(e.message, true); }
+            const res = await apiFetch('/api/moderasyon/islem', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, userId: document.getElementById('mod-hedef-uye').value, tur: document.getElementById('mod-islem-tur').value, dakika: Number(document.getElementById('mod-sure-dk').value)||10, sebep: document.getElementById('mod-sebep').value }) });
+            toastGoster('⚖️ ' + res.mesaj); await panelVerileriniYukle();
+        } catch (e) { toastGoster('❌ ' + e.message, true); }
     }
-    async function uyariSil(id) { await apiFetch(`/api/uyari/${currentGuildId}/${id}`, { method:'DELETE' }); toastGoster('Uyarı silindi.'); await panelVerileriniYukle(); }
+    function uyariKurallariCiz() {
+        document.getElementById('uyari-kurallari-body').innerHTML = geciciUyariKurallari.map((k, i) => `
+            <tr>
+                <td><input type="number" class="form-control" style="width:68px;" value="${k.esik}" onchange="geciciUyariKurallari[${i}].esik=Number(this.value)"></td>
+                <td><select class="form-control" onchange="geciciUyariKurallari[${i}].aksiyon=this.value">
+                    <option value="uyar" ${k.aksiyon==='uyar'?'selected':''}>Sadece Uyarı</option>
+                    <option value="timeout" ${k.aksiyon==='timeout'?'selected':''}>Sustur (Timeout)</option>
+                    <option value="kick" ${k.aksiyon==='kick'?'selected':''}>At (Kick)</option>
+                    <option value="ban" ${k.aksiyon==='ban'?'selected':''}>Yasakla (Ban)</option>
+                </select></td>
+                <td><input type="number" class="form-control" style="width:75px;" value="${k.sureDk||0}" onchange="geciciUyariKurallari[${i}].sureDk=Number(this.value)"></td>
+                <td><button class="btn btn-danger btn-sm" onclick="geciciUyariKurallari.splice(${i},1);uyariKurallariCiz()">×</button></td>
+            </tr>
+        `).join('');
+    }
+    function uyariKuraliEkle() { geciciUyariKurallari.push({ esik: geciciUyariKurallari.length + 1, aksiyon: 'timeout', sureDk: 15 }); uyariKurallariCiz(); }
     function yasakliKelimeleriCiz() { document.getElementById('yasakli-kelimeler-cloud').innerHTML = geciciYasakliKelimeler.map((k,i)=>`<span class="word-tag">${esc(k)} <button onclick="geciciYasakliKelimeler.splice(${i},1);yasakliKelimeleriCiz()">×</button></span>`).join(''); }
     function yasakliKelimeEkle() { const k = document.getElementById('yeni-yasakli-kelime').value.trim().toLowerCase(); if (k && !geciciYasakliKelimeler.includes(k)) { geciciYasakliKelimeler.push(k); yasakliKelimeleriCiz(); } document.getElementById('yeni-yasakli-kelime').value = ''; }
     function automodAyarKaydet() {
-        ayarKaydet({ automod: {
-            kufurEngel: document.getElementById('inp-kufurEngel').checked,
-            linkEngel: document.getElementById('inp-linkEngel').checked,
-            capsEngel: document.getElementById('inp-capsEngel').checked,
-            spamEngel: document.getElementById('inp-spamEngel').checked,
-            tekrarMesajEngel: document.getElementById('inp-tekrarMesajEngel').checked,
-            cezaAksiyonu: document.getElementById('inp-cezaAksiyonu').value,
-            timeoutDakika: Number(document.getElementById('inp-timeoutDakika').value)||5,
-            otoCezaEsik: Number(document.getElementById('inp-otoCezaEsik').value)||3,
-            yeniHesapKorumaGun: Number(document.getElementById('inp-yeniHesapGun').value)||0,
-            muafRol: document.getElementById('inp-muafRol').value,
-            yasakliKelimeler: geciciYasakliKelimeler
-        }}, 'Moderasyon ve AutoMod kuralları kaydedildi.');
+        ayarKaydet({
+            karaListeOtoBan: document.getElementById('inp-karaListeOtoBan').checked,
+            automod: {
+                aiModerasyonAktif: document.getElementById('inp-aiModerasyonAktif').checked,
+                kufurEngel: document.getElementById('inp-kufurEngel').checked, linkEngel: document.getElementById('inp-linkEngel').checked,
+                capsEngel: document.getElementById('inp-capsEngel').checked, spamEngel: document.getElementById('inp-spamEngel').checked,
+                cezaAksiyonu: document.getElementById('inp-cezaAksiyonu').value, yeniHesapKorumaGun: Number(document.getElementById('inp-yeniHesapGun').value)||0,
+                muafRol: document.getElementById('inp-muafRol').value, yasakliKelimeler: geciciYasakliKelimeler, uyariKurallari: geciciUyariKurallari
+            }
+        }, 'AI Moderasyon ve Uyarı Merdiveni kaydedildi.');
     }
+    async function karaListeEkleUI() {
+        await apiFetch('/api/karaliste', { method:'POST', body: JSON.stringify({ guildId: currentGuildId, discordId: document.getElementById('kl-discord').value, robloxAdi: document.getElementById('kl-roblox').value, sebep: document.getElementById('kl-sebep').value }) });
+        document.getElementById('kl-discord').value = ''; document.getElementById('kl-roblox').value = ''; document.getElementById('kl-sebep').value = '';
+        toastGoster('⛔ Kara listeye eklendi.'); await panelVerileriniYukle();
+    }
+    async function karaListeSil(id) { await apiFetch(`/api/karaliste/${currentGuildId}/${id}`, { method:'DELETE' }); toastGoster('Kayıt kaldırıldı.'); await panelVerileriniYukle(); }
+
     function logVeKartKaydet() {
         ayarKaydet({
-            modLogKanal: document.getElementById('inp-modLogKanal').value,
-            sesLogKanal: document.getElementById('inp-sesLogKanal').value,
-            girisCikisLogKanal: document.getElementById('inp-girisCikisLogKanal').value,
-            otoRol: document.getElementById('inp-otoRol').value,
-            girisBaslik: document.getElementById('inp-girisBaslik').value,
-            girisRenk: document.getElementById('inp-girisRenk').value,
-            girisMesaj: document.getElementById('inp-girisMesaj').value,
-            girisArkaPlanUrl: document.getElementById('inp-girisArkaPlanUrl').value,
+            modLogKanal: document.getElementById('inp-modLogKanal').value, sesLogKanal: document.getElementById('inp-sesLogKanal').value,
+            girisCikisLogKanal: document.getElementById('inp-girisCikisLogKanal').value, otoRol: document.getElementById('inp-otoRol').value,
+            girisBaslik: document.getElementById('inp-girisBaslik').value, girisRenk: document.getElementById('inp-girisRenk').value,
+            girisMesaj: document.getElementById('inp-girisMesaj').value, girisArkaPlanUrl: document.getElementById('inp-girisArkaPlanUrl').value,
             cikisArkaPlanUrl: document.getElementById('inp-cikisArkaPlanUrl').value,
             leveling: { ...(panelData?.ayarlar?.leveling||{}), seviyeKanal: document.getElementById('inp-seviyeKanal').value }
         }, 'Kart ve log ayarları kaydedildi.');
@@ -1389,21 +1322,15 @@
         const moduller = {};
         document.querySelectorAll('.modul-cb').forEach(c => moduller[c.dataset.key] = c.checked);
         ayarKaydet({
-            tema: {
-                baslik: document.getElementById('inp-temaBaslik').value, altBaslik: document.getElementById('inp-temaAltBaslik').value,
-                primary: document.getElementById('inp-temaPrimary').value, accent: document.getElementById('inp-temaAccent').value,
-                palet: document.getElementById('inp-temaPalet').value
-            },
+            tema: { baslik: document.getElementById('inp-temaBaslik').value, altBaslik: document.getElementById('inp-temaAltBaslik').value, primary: document.getElementById('inp-temaPrimary').value, accent: document.getElementById('inp-temaAccent').value, palet: document.getElementById('inp-temaPalet').value },
             moduller
-        }, 'Tema ve modül ayarları kaydedildi.');
+        }, 'Tema ve modüller kaydedildi.');
     }
     function denetimTablosuCiz() {
         const logs = panelData?.ayarlar?.logs || [];
         const f = document.getElementById('log-kategori-filtre').value;
         const liste = f === 'ALL' ? logs : logs.filter(l => l.kategori === f);
-        document.getElementById('denetim-logs-body').innerHTML = liste.map(l => `
-            <tr><td>${esc(l.tarih)}</td><td><span class="badge badge-blue">${esc(l.kategori)}</span></td><td><strong>${esc(l.islem)}</strong></td><td>${esc(l.detay)}</td><td>${esc(l.kullanici)}</td></tr>
-        `).join('') || '<tr><td colspan="5" style="color:var(--text-dim);">Kayıt yok.</td></tr>';
+        document.getElementById('denetim-logs-body').innerHTML = liste.map(l => `<tr><td>${esc(l.tarih)}</td><td><span class="badge badge-blue">${esc(l.kategori)}</span></td><td><strong>${esc(l.islem)}</strong></td><td>${esc(l.detay)}</td><td>${esc(l.kullanici)}</td></tr>`).join('') || '<tr><td colspan="5" style="color:var(--text-dim);">Kayıt yok.</td></tr>';
     }
 </script>
 </body>

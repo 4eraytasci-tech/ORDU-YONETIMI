@@ -1,20 +1,23 @@
-{
-  "name": "ordu-yonetimi-discord-saas-bot",
-  "version": "3.0.0",
-  "description": "ORDU YÖNETİMİ Discord Bot - Tam Kapsamlı AI, Ticket, Canlı Ses Dinleme/Kayıt, Görsel Log, AutoMod ve Web Panel",
+"name": "ordu-yonetimi-discord-saas-bot",
+  "version": "5.0.0",
+  "description": "ORDU YÖNETİMİ (TSF) Discord Bot & Komuta Web Paneli",
   "main": "ordu.js",
   "scripts": {
     "start": "node ordu.js"
   },
   "dependencies": {
-    "@discordjs/opus": "^0.9.0",
-    "@discordjs/voice": "^0.17.0",
+    "@discordjs/voice": "^0.18.0",
+    "@snazzah/davey": "^0.1.4",
     "cors": "^2.8.5",
     "discord.js": "^14.16.3",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "ffmpeg-static": "^5.2.0",
-    "libsodium-wrappers": "^0.7.13",
+    "libsodium-wrappers": "^0.7.15",
+    "opusscript": "^0.1.1",
     "prism-media": "^1.3.5"
+  },
+  "optionalDependencies": {
+    "@discordjs/opus": "^0.10.0"
   }
 }

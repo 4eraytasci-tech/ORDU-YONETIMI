@@ -1,5 +1,6 @@
 // ============================================================================
 // ORDU YÖNETİMİ (TSF) — KOMUTA & KONTROL BOTU + WEB PANEL SUNUCUSU (ordu.js)
+// Sürüm: 5.0.0
 // ============================================================================
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
@@ -15,6 +16,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { Readable } = require('stream');
 const express = require('express');
 const {
     Client,
@@ -28,6 +30,7 @@ const {
     ModalBuilder,
     TextInputBuilder,
     TextInputStyle,
+    AttachmentBuilder,
     ChannelType,
     PermissionsBitField,
     REST,
@@ -35,11 +38,30 @@ const {
     SlashCommandBuilder
 } = require('discord.js');
 
+// Ses & Şifreleme Modülleri
 let VoiceLib = null;
+let sodiumReadyPromise = null;
+let opusEngineName = 'YOK';
+let NativeOpusEncoder = null;
+let OpusScriptClass = null;
+
 try {
     VoiceLib = require('@discordjs/voice');
+    try {
+        const sodium = require('libsodium-wrappers');
+        sodiumReadyPromise = sodium.ready;
+    } catch (_) {}
+    try {
+        const opusMod = require('@discordjs/opus');
+        NativeOpusEncoder = opusMod.OpusEncoder;
+        opusEngineName = '@discordjs/opus';
+    } catch (_) {}
+    try {
+        OpusScriptClass = require('opusscript');
+        if (opusEngineName === 'YOK') opusEngineName = 'opusscript';
+    } catch (_) {}
 } catch (_) {
-    console.warn('ℹ️ @discordjs/voice yüklü değil; canlı ses dinleme devre dışı.');
+    console.warn('ℹ️ @discordjs/voice yüklü değil; ses özellikleri devre dışı.');
 }
 
 try {
@@ -51,8 +73,10 @@ try {
 } catch (_) {}
 
 // ============================================================================
-// 1. YAPILANDIRMA VE RESMİ TSF RÜTBE HİYERARŞİSİ
+// 1. YAPILANDIRMA, SÜPER YETKİLİ & RESMİ TSF RÜTBE HİYERARŞİSİ
 // ============================================================================
+const SUPER_ADMIN_ID = '1520781174656467154'; // Tüm rütbe ve sistem kısıtlamalarından muaf
+
 const PORT = Number(process.env.PORT) || 3000;
 const DISCORD_TOKEN = (process.env.DISCORD_TOKEN || '').trim();
 const CLIENT_ID = (process.env.CLIENT_ID || '').trim();
@@ -62,15 +86,17 @@ const GEMINI_API_KEY = (process.env.GEMINI_API_KEY || '').trim();
 const DEFAULT_ROBLOX_GROUP_ID = (process.env.ROBLOX_GROUP_ID || '137412624').trim();
 const ROBLOX_API_KEY = (process.env.ROBLOX_API_KEY || '').trim();
 const ROBLOX_COOKIE = (process.env.ROBLOX_COOKIE || '').trim();
+const FIREBASE_DB_URL = (process.env.FIREBASE_DB_URL || '').trim().replace(/\/$/, '');
 
 const DB_PATH = path.join(__dirname, 'veritabani.json');
 const SESSIONS_PATH = path.join(__dirname, 'sessions.json');
 const KAYITLAR_DIR = path.join(__dirname, 'kayitlar');
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const KUFURLER_PATH = path.join(__dirname, 'kufurler.txt');
 const KELIMELER_PATH = path.join(__dirname, 'kelimeler.txt');
 
-if (!fs.existsSync(KAYITLAR_DIR)) {
-    fs.mkdirSync(KAYITLAR_DIR, { recursive: true });
+for (const dir of [KAYITLAR_DIR, UPLOADS_DIR]) {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 const VARSAYILAN_TSF_RUTBELER = [
@@ -106,15 +132,51 @@ const VARSAYILAN_TSF_RUTBELER = [
     { ad: 'Lider', sinif: 'Üst Komuta & Yönetim' },
     { ad: 'Yönetim Kurulu', sinif: 'Üst Komuta & Yönetim' },
     { ad: 'Yönetim Kurulu Başkanı', sinif: 'Üst Komuta & Yönetim' },
-    { ad: 'Başkumandan', sinif: 'Üst Komuta & Yönetim' },
+    { ad: 'Başkomutan', sinif: 'Üst Komuta & Yönetim' },
     { ad: 'Baş Geliştirici', sinif: 'Üst Komuta & Yönetim' },
     { ad: 'Yardımcı Grup Sahibi', sinif: 'Üst Komuta & Yönetim' },
     { ad: '[OF-10] Mareşal', sinif: 'Üst Komuta & Yönetim' },
     { ad: 'Grup Sahibi', sinif: 'Üst Komuta & Yönetim' }
 ];
 
+const VARSAYILAN_SINAV_SORULARI = [
+    {
+        soru: '1) Bir üst rütbeli komutan odaya veya alana girdiğinde ilk olarak ne yapılmalıdır?',
+        secenekler: ['Hiçbir şey yapılmaz', 'Dikkat / Selam durulup tekmil verilir', 'Oyun sohbetine devam edilir', 'Kanal değiştirilir'],
+        dogru: 1
+    },
+    {
+        soru: '2) TSF hiyerarşisinde [Or-1] Acemi Er rütbesinden sonraki ilk terfi rütbesi hangisidir?',
+        secenekler: ['[Or-2] Onbaşı', '[Or-4] Çavuş', '[OF-1/A] Asteğmen', '[Or-6] Astsubay Çavuş'],
+        dogru: 0
+    },
+    {
+        soru: '3) Operasyon veya eğitim esnasında telsiz/ses disiplini nasıl olmalıdır?',
+        secenekler: ['Herkes aynı anda konuşabilir', 'Sadece komutan söz verdiğinde kısa ve net konuşulur', 'Müzik açılabilir', 'Sohbet serbesttir'],
+        dogru: 1
+    },
+    {
+        soru: '4) Emir-komuta zincirinde bir sorun veya şikayet yaşandığında ne yapılmalıdır?',
+        secenekler: ['Genel sohbette tartışma çıkarılır', 'Destek bileti (Ticket) veya üst komuta üzerinden resmi bildirim yapılır', 'Sunucudan çıkılır', 'Diğer askerlere hakaret edilir'],
+        dogru: 1
+    },
+    {
+        soru: '5) Mazeretli olarak birkaç gün aktif olamayacak personel hangi sistemi kullanmalıdır?',
+        secenekler: ['Haber vermeden kaybolur', '/izin talep (LOA) sistemi ile resmi mazeret bildirir', 'Rütbe ister', 'Sadece oyun içi yazar'],
+        dogru: 1
+    }
+];
+
+const VARSAYILAN_UYARI_KURALLARI = [
+    { esik: 1, aksiyon: 'uyar', sureDk: 0 },
+    { esik: 2, aksiyon: 'timeout', sureDk: 10 },
+    { esik: 3, aksiyon: 'timeout', sureDk: 60 },
+    { esik: 4, aksiyon: 'kick', sureDk: 0 },
+    { esik: 5, aksiyon: 'ban', sureDk: 0 }
+];
+
 // ============================================================================
-// 2. TÜRKÇE NORMALİZASYON & AKILLI KÜFÜR FİLTRESİ
+// 2. TÜRKÇE NORMALİZASYON & GELİŞMİŞ KÜFÜR/ARGO FİLTRESİ
 // ============================================================================
 function turkceNormalize(metin) {
     return String(metin || '')
@@ -126,7 +188,16 @@ function turkceNormalize(metin) {
         .replace(/@/g, 'a').replace(/\$/g, 's');
 }
 
-const yasakliSet = new Set();
+const TEMEL_KUFURLER = [
+    'aq', 'amk', 'mk', 'amq', 'oc', 'oç', 'sg', 'pic', 'piç', 'siktir', 'sktir',
+    'sikim', 'sikeyim', 'sikerim', 'sikik', 'yarrak', 'yarak', 'orospu', 'orspu',
+    'kahpe', 'amcik', 'amcık', 'göt', 'gotveren', 'pezevenk', 'yavsak', 'yavşak',
+    'ibne', 'puşt', 'pust', 'serefsiz', 'şerefsiz', 'ananı', 'anani', 'bacını',
+    'bacini', 'malmısın', 'gerizekalı', 'gerizekali', 'aptal', 'salak', 'dingil',
+    'bok', 'hassiktir', 'hasktr', 'sıçayım', 'sicayim', 'amına', 'amina'
+];
+
+const yasakliSet = new Set(TEMEL_KUFURLER);
 const sozlukSet = new Set();
 
 if (fs.existsSync(KUFURLER_PATH)) {
@@ -135,7 +206,6 @@ if (fs.existsSync(KUFURLER_PATH)) {
         if (temiz.length >= 2) yasakliSet.add(temiz);
     }
 }
-
 if (fs.existsSync(KELIMELER_PATH)) {
     for (const s of fs.readFileSync(KELIMELER_PATH, 'utf8').split(/\r?\n/)) {
         const temiz = s.trim().toLocaleLowerCase('tr-TR');
@@ -156,7 +226,9 @@ function kufurKontrolEt(mesajIcerik, ekstraYasaklilar = []) {
         if (ekstraSet.has(kelime)) return kelime;
         if (yasakliSet.has(kelime)) return kelime;
 
-        const norm = turkceNormalize(kelime).replace(/(.)\1{2,}/g, '$1');
+        const norm = turkceNormalize(kelime).replace(/(.)\1{1,}/g, '$1');
+        if (yasakliSet.has(norm) && !sozlukSet.has(kelime)) return norm;
+
         if (!sozlukSet.has(kelime) && norm.length >= 3) {
             for (const yasak of ekstraSet) {
                 if (norm === turkceNormalize(yasak)) return yasak;
@@ -171,13 +243,11 @@ function kufurKontrolEt(mesajIcerik, ekstraYasaklilar = []) {
 }
 
 // ============================================================================
-// 3. KALICI VERİTABANI VE OTURUMLAR
+// 3. KALICI VERİTABANI (YEREL + FIREBASE BULUT SENKRONİZASYONU)
 // ============================================================================
 function dbYukle() {
     try {
-        if (fs.existsSync(DB_PATH)) {
-            return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-        }
+        if (fs.existsSync(DB_PATH)) return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
     } catch (e) {
         console.error('Veritabanı okuma hatası:', e.message);
     }
@@ -187,12 +257,36 @@ function dbYukle() {
 let db = dbYukle();
 let dbSaveTimer = null;
 
+async function bulutDbYukle() {
+    if (!FIREBASE_DB_URL) return;
+    try {
+        const res = await fetch(`${FIREBASE_DB_URL}/ordu_db.json`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data && typeof data === 'object' && data.sunucular) {
+                db = { sunucular: data.sunucular || {}, sesKayitlari: data.sesKayitlari || [] };
+                fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
+                console.log('☁️ Firebase bulut veritabanı senkronize edildi.');
+            }
+        }
+    } catch (e) {
+        console.warn('⚠️ Bulut DB okuma uyarısı:', e.message);
+    }
+}
+
 function dbKaydet(hemen = false) {
     const yaz = () => {
         try {
             fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
         } catch (e) {
             console.error('Veritabanı yazma hatası:', e.message);
+        }
+        if (FIREBASE_DB_URL) {
+            fetch(`${FIREBASE_DB_URL}/ordu_db.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(db)
+            }).catch(() => {});
         }
     };
     if (hemen) {
@@ -201,7 +295,7 @@ function dbKaydet(hemen = false) {
         return;
     }
     if (dbSaveTimer) clearTimeout(dbSaveTimer);
-    dbSaveTimer = setTimeout(yaz, 300);
+    dbSaveTimer = setTimeout(yaz, 350);
 }
 
 function sunucuAyarGetir(guildId) {
@@ -219,6 +313,7 @@ function sunucuAyarGetir(guildId) {
         },
         moduller: {
             ai: true,
+            aiModerasyon: true,
             ticket: true,
             rutbe: true,
             sesOdasi: true,
@@ -228,31 +323,47 @@ function sunucuAyarGetir(guildId) {
             karsilama: true,
             nobet: true,
             loa: true,
-            operasyon: true
+            operasyon: true,
+            cekilis: true,
+            ozelKomutlar: true,
+            sinav: true,
+            karaListe: true
         },
         robloxGrupId: DEFAULT_ROBLOX_GROUP_ID,
         rutbeYetkiliRol: '',
         tsfRutbeler: JSON.parse(JSON.stringify(VARSAYILAN_TSF_RUTBELER)),
+        dogrulamalar: {}, // discordId -> { robloxId, robloxUsername, tarih }
+        bekleyenDogrulamalar: {}, // discordId -> { robloxId, robloxUsername, kod, zaman }
+        sicilKayitlari: {}, // discordId -> { madalyalar: [], disiplin: [] }
+        karaListe: [], // { id, discordId, robloxId, robloxUsername, sebep, yetkili, tarih }
+        karaListeOtoBan: false,
+        sinavAyar: {
+            gecmeYuzdesi: 80,
+            terfiHedefRutbe: '[Or-2] Onbaşı',
+            sorular: JSON.parse(JSON.stringify(VARSAYILAN_SINAV_SORULARI))
+        },
         aiAktif: true,
         aiIzinliKanallar: [],
         aiBaglamMesajSayisi: 10,
-        aiSistemTalimati: 'Sen ORDU YÖNETİMİ (TSF) sunucusunun disiplinli, saygılı, stratejik düşünen ve Türkçeye tam uyumlu Komuta Yapay Zeka Asistanısın. Kullanıcılara rütbe bilincine uygun net ve doğru yanıtlar ver.',
+        aiSistemTalimati: 'Sen ORDU YÖNETİMİ (TSF) sunucusunun disiplinli, saygılı, akıllı ve Türkçeye tam hakim Komuta Yapay Zeka Asistanısın. Rütbeleri ve rolleri kesin doğrulukla oku, sorulan soruları eksiksiz ve net yanıtla.',
         ticketKategori: '',
         ticketYetkiliRol: '',
         ticketAiAktif: true,
         ticketPanelGorselUrl: '',
         ticketPanelRenk: '#3b82f6',
         ticketKonular: [
-            { id: 'rutbe_talebi', isim: 'Rütbe & Terfi Talebi', aciklama: 'TSF Roblox ve Discord rütbe eşitleme işlemleri', emoji: '🎖️', gorselUrl: '' },
+            { id: 'rutbe_talebi', isim: 'Rütbe & Terfi Talebi', aciklama: 'TSF Roblox ve Discord rütbe işlemleri', emoji: '🎖️', gorselUrl: '' },
             { id: 'sikayet_bildirim', isim: 'Disiplin & Şikayet Bildirimi', aciklama: 'Kural ihlali veya personel şikayetleri', emoji: '⚖️', gorselUrl: '' },
             { id: 'genel_destek', isim: 'Genel Komuta Desteği', aciklama: 'Sunucu ve operasyon hakkında sorularınız', emoji: '🎫', gorselUrl: '' }
         ],
         acikBiletler: {},
         kapatilanBiletler: [],
         ozelSesKategori: '',
+        sesArsivKanal: '', // WAV dosyalarının kalıcı yedekleneceği Discord metin kanalı
         ozelSesOdalari: {},
         automod: {
             kufurEngel: true,
+            aiModerasyonAktif: true,
             linkEngel: false,
             capsEngel: false,
             spamEngel: true,
@@ -260,11 +371,14 @@ function sunucuAyarGetir(guildId) {
             yeniHesapKorumaGun: 0,
             muafRol: '',
             yasakliKelimeler: [],
-            cezaAksiyonu: 'sil_uyar',
+            cezaAksiyonu: 'uyari_merdiveni', // sil | sil_uyar | sil_timeout | uyari_merdiveni
             timeoutDakika: 5,
-            otoCezaEsik: 3,
-            otoCezaTimeoutDakika: 15
+            uyariKurallari: JSON.parse(JSON.stringify(VARSAYILAN_UYARI_KURALLARI))
         },
+        ozelKomutlar: [
+            { id: 'ornek_grup', tetikleyici: 'grup', cevapMetni: 'TSF Resmi Roblox Grubumuza buradan katılabilirsiniz:', url: 'https://www.roblox.com/groups/137412624', gorselUrl: '', embedOlsun: true, renk: '#3b82f6', butonMetni: '🎖️ Roblox Grubuna Git' }
+        ],
+        cekilisler: [], // { id, kanalId, mesajId, odul, kazananSayisi, bitisTimestamp, olusturan, bitti, katilanlar: [], kazananlar: [], sartRolId, sartMinSeviye, sartMinNobetDk }
         sesLogKanal: '',
         rolLogKanal: '',
         mesajLogKanal: '',
@@ -299,10 +413,14 @@ function sunucuAyarGetir(guildId) {
         tema: { ...varsayilan.tema, ...(s.tema || {}) },
         moduller: { ...varsayilan.moduller, ...(s.moduller || {}) },
         automod: { ...varsayilan.automod, ...(s.automod || {}) },
-        leveling: { ...varsayilan.leveling, ...(s.leveling || {}) }
+        leveling: { ...varsayilan.leveling, ...(s.leveling || {}) },
+        sinavAyar: { ...varsayilan.sinavAyar, ...(s.sinavAyar || {}) }
     };
     if (!Array.isArray(db.sunucular[guildId].tsfRutbeler) || db.sunucular[guildId].tsfRutbeler.length === 0) {
         db.sunucular[guildId].tsfRutbeler = JSON.parse(JSON.stringify(VARSAYILAN_TSF_RUTBELER));
+    }
+    if (!Array.isArray(db.sunucular[guildId].automod.uyariKurallari) || db.sunucular[guildId].automod.uyariKurallari.length === 0) {
+        db.sunucular[guildId].automod.uyariKurallari = JSON.parse(JSON.stringify(VARSAYILAN_UYARI_KURALLARI));
     }
     return db.sunucular[guildId];
 }
@@ -318,7 +436,7 @@ function logEkle(guildId, kategori, islem, detay, kullanici = 'Sistem') {
         detay,
         kullanici
     });
-    if (ayar.logs.length > 350) ayar.logs.length = 350;
+    if (ayar.logs.length > 400) ayar.logs.length = 400;
     dbKaydet();
 }
 
@@ -336,7 +454,7 @@ function sessionKaydet() {
 }
 
 // ============================================================================
-// 4. GÜVENLİ HTTP İSTEK YARDIMCISI
+// 4. GÜVENLİ HTTP YARDIMCISI & GÖRSEL EK HAZIRLAYICI (.PNG / URL)
 // ============================================================================
 async function guvenliFetch(url, options = {}, deneme = 3) {
     let sonHata = null;
@@ -355,8 +473,36 @@ async function guvenliFetch(url, options = {}, deneme = 3) {
     throw sonHata || new Error('Ağ bağlantısı başarısız.');
 }
 
+// URL veya yerel yüklenmiş /uploads/...png dosyasını Embed'e ekler
+function gorselEmbedVeEkHazirla(embed, gorselDeger) {
+    const files = [];
+    const val = String(gorselDeger || '').trim();
+    if (!val) return files;
+
+    if (val.startsWith('http://') || val.startsWith('https://')) {
+        embed.setImage(val);
+    } else if (val.startsWith('/uploads/')) {
+        const dosyaAdi = path.basename(val);
+        const tamYol = path.join(UPLOADS_DIR, dosyaAdi);
+        if (fs.existsSync(tamYol)) {
+            files.push(new AttachmentBuilder(tamYol, { name: dosyaAdi }));
+            embed.setImage(`attachment://${dosyaAdi}`);
+        }
+    } else if (val.startsWith('data:image/')) {
+        const match = val.match(/^data:image\/(png|jpeg|jpg|webp|gif);base64,(.+)$/i);
+        if (match) {
+            const ext = match[1].toLowerCase() === 'jpeg' ? 'jpg' : match[1].toLowerCase();
+            const buf = Buffer.from(match[2], 'base64');
+            const ad = `gorsel_${Date.now()}.${ext}`;
+            files.push(new AttachmentBuilder(buf, { name: ad }));
+            embed.setImage(`attachment://${ad}`);
+        }
+    }
+    return files;
+}
+
 // ============================================================================
-// 5. ROBLOX TSF RÜTBE MOTORU (GÜNCELLENMİŞ HİYERARŞİ & OTOMATİK YÜKLEME)
+// 5. ROBLOX TSF RÜTBE, DOĞRULAMA & HİYERARŞİ KORUMA MOTORU
 // ============================================================================
 const robloxRolCache = new Map();
 
@@ -399,7 +545,6 @@ async function robloxGrupRolleriniGetir(groupId, zorlaYenile = false) {
         }));
     }
 
-    // Yazım düzeltmelerini ve mükerrer temizliğini uygula
     const gorulenIsimler = new Set();
     const temizRoller = [];
     for (const r of roller.sort((a, b) => a.rank - b.rank)) {
@@ -408,7 +553,7 @@ async function robloxGrupRolleriniGetir(groupId, zorlaYenile = false) {
             .replace(/\[OF-7\]\s*Tumgeneral/i, '[OF-7] Tümgeneral')
             .replace(/^OF-10\s+Mareşal/i, '[OF-10] Mareşal')
             .trim();
-        const anahtar = ad.toLocaleLowerCase('tr-TR');
+        const anahtar = turkceNormalize(ad);
         if (gorulenIsimler.has(anahtar)) continue;
         gorulenIsimler.add(anahtar);
         temizRoller.push({ ...r, name: ad });
@@ -441,6 +586,12 @@ async function robloxKullaniciBul(kullaniciAdi) {
     } catch (_) {}
 
     return { id: String(u.id), username: u.name, displayName: u.displayName || u.name, avatarUrl };
+}
+
+async function robloxKullaniciDetayGetir(userId) {
+    const res = await guvenliFetch(`https://users.roblox.com/v1/users/${userId}`);
+    if (!res.ok) throw new Error('Roblox profil bilgisi alınamadı.');
+    return res.json();
 }
 
 async function robloxKullaniciGrupBilgisi(groupId, userId) {
@@ -515,17 +666,230 @@ async function robloxGrupRutbeDegistir(groupId, userId, hedefRol) {
     throw new Error(openCloudHata || 'ROBLOX_API_KEY veya ROBLOX_COOKIE yapılandırılmamış.');
 }
 
+// Başkomutan / Başkumandan eş anlamlı rütbe eşleştirme
+function rutbeAdEslesirMi(rolAdi, hedefRutbeAdi) {
+    const temiz = s => turkceNormalize(s).replace(/baskumandan/g, 'baskomutan').replace(/[^a-z0-9]/g, '');
+    const rT = temiz(rolAdi);
+    const hT = temiz(hedefRutbeAdi);
+    if (!rT || !hT) return false;
+    if (rT === hT) return true;
+    const hParantezsiz = temiz(hedefRutbeAdi.replace(/^\[[^\]]+\]\s*/, ''));
+    if (hParantezsiz.length >= 3 && (rT === hParantezsiz || rT.includes(hParantezsiz))) return true;
+    const kodEs = hedefRutbeAdi.match(/\b(OF|OR|WO|CW)[\s\-_]?(\d{1,2}(?:\/[ABC])?)\b/i);
+    if (kodEs) {
+        const kodT = temiz(kodEs[1] + kodEs[2]);
+        if (rT.includes(kodT)) return true;
+    }
+    return false;
+}
+
+function rutbeIndexBul(rutbeAdi, ayar) {
+    const hiyerarsi = ayar.tsfRutbeler || VARSAYILAN_TSF_RUTBELER;
+    for (let i = hiyerarsi.length - 1; i >= 0; i--) {
+        if (rutbeAdEslesirMi(rutbeAdi, hiyerarsi[i].ad)) return i;
+    }
+    return -1;
+}
+
+// Üyenin EN YÜKSEK TSF Rütbesini, tüm Discord rollerini, madalyalarını ve sicilini tam doğrulukla analiz eder
+function uyeRutbeVeKimlikAnaliz(guild, member, ayar) {
+    if (!member) return null;
+    const siraliRoller = member.roles.cache
+        .filter(r => r.id !== guild.id)
+        .sort((a, b) => b.position - a.position);
+
+    const roller = siraliRoller.map(r => r.name);
+    const hiyerarsi = ayar.tsfRutbeler || VARSAYILAN_TSF_RUTBELER;
+
+    let enYuksekRutbe = null;
+    let enYuksekIndex = -1;
+
+    for (let i = 0; i < hiyerarsi.length; i++) {
+        const eslesti = roller.some(rol => rutbeAdEslesirMi(rol, hiyerarsi[i].ad));
+        if (eslesti && i > enYuksekIndex) {
+            enYuksekIndex = i;
+            enYuksekRutbe = hiyerarsi[i];
+        }
+    }
+
+    const enYuksekDiscordRol = siraliRoller.first()?.name || 'Rütbesiz / Sivil';
+    const xp = ayar.leveling?.kullanicilar?.[member.id] || { seviye: 1, xp: 0 };
+    const uyariSayisi = (ayar.uyarilar || []).filter(u => u.kullaniciId === member.id).length;
+    const nobetSn = ayar.nobetSureleri?.[member.id]?.toplamSaniye || 0;
+    const dogrulama = ayar.dogrulamalar?.[member.id] || null;
+    const sicil = ayar.sicilKayitlari?.[member.id] || { madalyalar: [], disiplin: [] };
+
+    return {
+        id: member.id,
+        tag: member.user.tag,
+        displayName: member.displayName,
+        enYuksekRutbe: enYuksekRutbe ? `${enYuksekRutbe.ad} (${enYuksekRutbe.sinif})` : enYuksekDiscordRol,
+        enYuksekRutbeSaf: enYuksekRutbe ? enYuksekRutbe.ad : enYuksekDiscordRol,
+        enYuksekDiscordRol,
+        rutbeIndex: enYuksekIndex,
+        roller,
+        seviye: xp.seviye,
+        xp: xp.xp,
+        uyariSayisi,
+        nobetDakika: Math.round(nobetSn / 60),
+        robloxUsername: dogrulama?.robloxUsername || null,
+        robloxId: dogrulama?.robloxId || null,
+        madalyalar: sicil.madalyalar || [],
+        disiplin: sicil.disiplin || []
+    };
+}
+
+// Kendi rütbesinden yüksek veya eşit rütbe verme engelleyici (1520781174656467154 MUAF)
+function hiyerarsiYetkiKontrol(guild, yetkiliMember, yetkiliUserId, hedefRutbeAdi, mevcutHedefRutbeAdi, ayar) {
+    if (String(yetkiliUserId) === SUPER_ADMIN_ID || yetkiliUserId === 'local_admin') {
+        return { izinli: true };
+    }
+    if (!yetkiliMember) {
+        return { izinli: false, sebep: 'Yetkili sunucu üyesi doğrulanamadı.' };
+    }
+    if (guild.ownerId === yetkiliMember.id) {
+        return { izinli: true };
+    }
+
+    const yetkiliAnaliz = uyeRutbeVeKimlikAnaliz(guild, yetkiliMember, ayar);
+    const yetkiliIdx = yetkiliAnaliz?.rutbeIndex ?? -1;
+    const hedefIdx = rutbeIndexBul(hedefRutbeAdi, ayar);
+    const mevcutHedefIdx = mevcutHedefRutbeAdi ? rutbeIndexBul(mevcutHedefRutbeAdi, ayar) : -1;
+
+    if (yetkiliIdx === -1) {
+        return { izinli: false, sebep: 'Sunucuda tanımlı bir TSF rütbeniz olmadığı için rütbe ataması yapamazsınız.' };
+    }
+    if (hedefIdx !== -1 && hedefIdx >= yetkiliIdx) {
+        return {
+            izinli: false,
+            sebep: `Kendi rütbeniz (${yetkiliAnaliz.enYuksekRutbeSaf}) ile eşit veya daha yüksek bir rütbe (${hedefRutbeAdi}) veremezsiniz!`
+        };
+    }
+    if (mevcutHedefIdx !== -1 && mevcutHedefIdx >= yetkiliIdx) {
+        return {
+            izinli: false,
+            sebep: `Kendinizle eşit veya üst rütbedeki (${mevcutHedefRutbeAdi}) bir personelin rütbesini değiştiremezsiniz!`
+        };
+    }
+    return { izinli: true };
+}
+
+async function discordRutbeRoluBulVeEslestir(guild, robloxRutbeAdi) {
+    const sunucuRolleri = Array.from(guild.roles.cache.values()).filter(r => !r.managed && r.id !== guild.id);
+    return sunucuRolleri.find(r => rutbeAdEslesirMi(r.name, robloxRutbeAdi)) || null;
+}
+
+// /update KOMUTU MOTORU: Roblox rütbesini okur -> Eklenen & Çıkarılan rolleri uygular
+async function kullaniciRolleriniGuncelle(guild, member, ayar, opsiyonelRobloxAdi = null) {
+    const groupId = ayar.robloxGrupId || DEFAULT_ROBLOX_GROUP_ID;
+    const dogrulama = ayar.dogrulamalar?.[member.id];
+    const robloxAdi = opsiyonelRobloxAdi || dogrulama?.robloxUsername || member.displayName.replace(/^\[[^\]]+\]\s*/, '').trim();
+
+    const rUser = dogrulama?.robloxId && !opsiyonelRobloxAdi
+        ? { id: dogrulama.robloxId, username: dogrulama.robloxUsername, avatarUrl: `https://www.roblox.com/headshot-thumbnail/image?userId=${dogrulama.robloxId}&width=150&height=150&format=png` }
+        : await robloxKullaniciBul(robloxAdi);
+
+    // Kara Liste Kontrolü
+    const karaKayit = (ayar.karaListe || []).find(k => k.discordId === member.id || (k.robloxId && k.robloxId === rUser.id));
+    if (karaKayit) {
+        throw new Error(`⛔ **KARA LİSTE UYARISI:** Bu hesap kara listededir! Sebep: ${karaKayit.sebep}`);
+    }
+
+    const [grupBilgi, tumRobloxRolleri] = await Promise.all([
+        robloxKullaniciGrupBilgisi(groupId, rUser.id),
+        robloxGrupRolleriniGetir(groupId)
+    ]);
+
+    if (!grupBilgi) {
+        throw new Error(`**${rUser.username}** adlı oyuncu TSF Roblox grubuna (${groupId}) üye değil!`);
+    }
+
+    const hedefDiscordRol = await discordRutbeRoluBulVeEslestir(guild, grupBilgi.roleName);
+    const eklenenRoller = [];
+    const cikarilanRoller = [];
+
+    // Tüm TSF rütbe rollerini (hem Roblox hem TSF hiyerarşisinden) bul ve eski olanları çıkar
+    const tumRutbeAdlari = new Set([
+        ...tumRobloxRolleri.map(r => r.name),
+        ...(ayar.tsfRutbeler || VARSAYILAN_TSF_RUTBELER).map(r => r.ad)
+    ]);
+
+    for (const rAd of tumRutbeAdlari) {
+        const dRol = await discordRutbeRoluBulVeEslestir(guild, rAd);
+        if (dRol && (!hedefDiscordRol || dRol.id !== hedefDiscordRol.id) && member.roles.cache.has(dRol.id)) {
+            await member.roles.remove(dRol).catch(() => {});
+            cikarilanRoller.push(dRol);
+        }
+    }
+
+    if (hedefDiscordRol && !member.roles.cache.has(hedefDiscordRol.id)) {
+        await member.roles.add(hedefDiscordRol);
+        eklenenRoller.push(hedefDiscordRol);
+    }
+
+    logEkle(
+        guild.id,
+        'RUTBE',
+        '/update Senkronizasyonu',
+        `${member.user.tag} (${rUser.username}) | Eklenen: ${eklenenRoller.map(r => r.name).join(', ') || 'Yok'} | Çıkarılan: ${cikarilanRoller.map(r => r.name).join(', ') || 'Yok'}`,
+        member.user.tag
+    );
+
+    return {
+        robloxUser: rUser,
+        grupBilgi,
+        eklenenRoller,
+        cikarilanRoller
+    };
+}
+
+// Rütbe Ver İşlemi: Sadece Roblox rütbesini günceller, Discord rollerini /update'e bırakır!
+async function tamRutbeIslemiYap({ guild, robloxKullaniciAdi, hedefRolId, yetkiliMember, yetkiliUserId, yetkiliEtiket }) {
+    const ayar = sunucuAyarGetir(guild.id);
+    const groupId = ayar.robloxGrupId || DEFAULT_ROBLOX_GROUP_ID;
+    const [robloxUser, tumRoller] = await Promise.all([
+        robloxKullaniciBul(robloxKullaniciAdi),
+        robloxGrupRolleriniGetir(groupId, true)
+    ]);
+
+    const normAranan = turkceNormalize(String(hedefRolId));
+    const hedefRol = tumRoller.find(r => String(r.id) === String(hedefRolId))
+        || tumRoller.find(r => rutbeAdEslesirMi(r.name, String(hedefRolId)))
+        || tumRoller.find(r => turkceNormalize(r.name).includes(normAranan));
+
+    if (!hedefRol) throw new Error(`"${hedefRolId}" rütbesi TSF Roblox grubunda bulunamadı.`);
+    if (hedefRol.rank === 0 || hedefRol.rank === 255) throw new Error('Bu rütbe sistem tarafından atanamaz.');
+
+    const mevcutBilgi = await robloxKullaniciGrupBilgisi(groupId, robloxUser.id);
+    if (!mevcutBilgi) throw new Error(`${robloxUser.username} TSF Roblox grubuna üye değil.`);
+
+    // HİYERARŞİ KONTROLÜ (1520781174656467154 HARİÇ)
+    const kontrol = hiyerarsiYetkiKontrol(guild, yetkiliMember, yetkiliUserId, hedefRol.name, mevcutBilgi.roleName, ayar);
+    if (!kontrol.izinli) throw new Error(`⛔ ${kontrol.sebep}`);
+
+    const sonuc = await robloxGrupRutbeDegistir(groupId, robloxUser.id, hedefRol);
+
+    logEkle(guild.id, 'RUTBE', 'Roblox Rütbe Ataması', `${robloxUser.username}: ${mevcutBilgi.roleName} → ${hedefRol.name} (Discord için /update bekleniyor)`, yetkiliEtiket);
+
+    return {
+        robloxUser,
+        eskiRolAdi: mevcutBilgi.roleName,
+        yeniRol: hedefRol,
+        yontem: sonuc.yontem
+    };
+}
+
 // ============================================================================
-// 6. GEMINI AI & ROL EŞLEŞTİRME MOTORU
+// 6. GEMINI AI (AKILLI RÜTBE LİSTESİ, DOĞRU ROL OKUMA & AI MODERASYON)
 // ============================================================================
-async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = []) {
+async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTokens = 1400) {
     if (!GEMINI_API_KEY) return '⚠️ GEMINI_API_KEY ortam değişkeni tanımlı değil.';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
     const parts = [{ text: kullaniciMesaji }, ...extraParts];
     const body = {
         systemInstruction: { parts: [{ text: sistemTalimati || 'Yardımcı bir asistansın.' }] },
         contents: [{ role: 'user', parts }],
-        generationConfig: { temperature: 0.6, maxOutputTokens: 1200 }
+        generationConfig: { temperature: 0.5, maxOutputTokens: maxTokens }
     };
 
     const res = await guvenliFetch(url, {
@@ -542,144 +906,40 @@ async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = []) {
     return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'Yanıt üretilemedi.';
 }
 
-function uyeRutbeVeKimlikAnaliz(guild, member, ayar) {
-    if (!member) return null;
-    const roller = member.roles.cache
-        .filter(r => r.id !== guild.id)
-        .sort((a, b) => b.position - a.position)
-        .map(r => r.name);
-
-    const hiyerarsi = ayar.tsfRutbeler || VARSAYILAN_TSF_RUTBELER;
-    const temiz = s => turkceNormalize(s).replace(/[^a-z0-9]/g, '');
-
-    let enYuksekRutbe = null;
-    let enYuksekIndex = -1;
-
-    for (let i = 0; i < hiyerarsi.length; i++) {
-        const rAd = hiyerarsi[i].ad;
-        const rTemiz = temiz(rAd);
-        const rParantezsiz = temiz(rAd.replace(/^\[[^\]]+\]\s*/, ''));
-        const eslesti = roller.some(rol => {
-            const rt = temiz(rol);
-            return rt === rTemiz || (rParantezsiz.length >= 3 && (rt === rParantezsiz || rt.includes(rParantezsiz)));
-        });
-        if (eslesti && i > enYuksekIndex) {
-            enYuksekIndex = i;
-            enYuksekRutbe = hiyerarsi[i];
+const aiModCooldown = new Map();
+async function aiModerasyonDenetle(mesajIcerik) {
+    if (!GEMINI_API_KEY || !mesajIcerik || mesajIcerik.trim().length < 2) return null;
+    try {
+        const yanit = await geminiSor(
+            'Sen bir Türkçe Discord moderasyon yapay zekasısın. Verilen mesajda küfür, hakaret, argo kısaltma (aq, amk, oç, sg, mk, piç, şerefsiz, vb. gizlenmiş veya harfleri bozulmuş küfürler dahil) veya ağır taciz var mı analiz et. SADECE şu JSON formatında yanıt ver: {"ihlal": true/false, "sebep": "kısa Türkçe sebep"}',
+            `Mesaj: "${mesajIcerik.slice(0, 400)}"`,
+            [],
+            120
+        );
+        const match = yanit.match(/\{[\s\S]*\}/);
+        if (match) {
+            const parsed = JSON.parse(match[0]);
+            if (parsed.ihlal === true) return parsed.sebep || 'AI Küfür/Hakaret Tespiti';
         }
-    }
-
-    const xp = ayar.leveling?.kullanicilar?.[member.id] || { seviye: 1, xp: 0 };
-    const uyariSayisi = (ayar.uyarilar || []).filter(u => u.kullaniciId === member.id).length;
-    const nobetSn = ayar.nobetSureleri?.[member.id]?.toplamSaniye || 0;
-
-    return {
-        id: member.id,
-        tag: member.user.tag,
-        displayName: member.displayName,
-        enYuksekRutbe: enYuksekRutbe ? `${enYuksekRutbe.ad} (${enYuksekRutbe.sinif})` : (roller[0] || 'Rütbesiz / Sivil'),
-        rutbeIndex: enYuksekIndex,
-        roller,
-        seviye: xp.seviye,
-        xp: xp.xp,
-        uyariSayisi,
-        nobetDakika: Math.round(nobetSn / 60)
-    };
-}
-
-async function discordRutbeRoluBulVeEslestir(guild, robloxRutbeAdi) {
-    const sunucuRolleri = Array.from(guild.roles.cache.values()).filter(r => !r.managed && r.id !== guild.id);
-    const temiz = (s) => turkceNormalize(s).replace(/[^a-z0-9]/g, '');
-    const hedefTemiz = temiz(robloxRutbeAdi);
-
-    const kodEslesme = robloxRutbeAdi.match(/\b(OF|OR|WO|CW)[\s\-_]?(\d{1,2}(?:\/[ABC])?)\b/i);
-    if (kodEslesme) {
-        const kodTam = temiz(kodEslesme[1] + kodEslesme[2]);
-        const rol = sunucuRolleri.find(r => temiz(r.name).includes(kodTam));
-        if (rol) return rol;
-    }
-
-    const parantezSonrasi = robloxRutbeAdi.replace(/^\[[^\]]+\]\s*/, '').trim();
-    const parantezTemiz = temiz(parantezSonrasi);
-    if (parantezTemiz.length >= 2) {
-        const isimRol = sunucuRolleri.find(r => {
-            const rt = temiz(r.name);
-            return rt === parantezTemiz || rt === hedefTemiz || (parantezTemiz.length >= 4 && rt.includes(parantezTemiz));
-        });
-        if (isimRol) return isimRol;
-    }
+    } catch (_) {}
     return null;
 }
 
-async function discordUyeRutbeSenkronizeEt(guild, member, yeniRobloxRol, tumRobloxRolleri) {
-    if (!member) return { durum: 'Discord üyesi sunucuda bulunamadı.' };
-    const eslesenRol = await discordRutbeRoluBulVeEslestir(guild, yeniRobloxRol.name);
-    if (!eslesenRol) return { durum: `"${yeniRobloxRol.name}" için eşleşen Discord rolü bulunamadı.` };
-
-    const kaldirilacaklar = [];
-    for (const rRol of tumRobloxRolleri) {
-        if (rRol.id === yeniRobloxRol.id) continue;
-        const dRol = await discordRutbeRoluBulVeEslestir(guild, rRol.name);
-        if (dRol && dRol.id !== eslesenRol.id && member.roles.cache.has(dRol.id)) {
-            kaldirilacaklar.push(dRol.id);
-        }
+// Tam TSF Rütbe Listesi Metni (AI'ın "er subay" diye geçiştirmemesi için)
+function tamRutbeListesiMetni(ayar) {
+    const liste = ayar.tsfRutbeler || VARSAYILAN_TSF_RUTBELER;
+    const gruplar = {};
+    for (const r of liste) {
+        if (!gruplar[r.sinif]) gruplar[r.sinif] = [];
+        gruplar[r.sinif].push(r.ad);
     }
-
-    try {
-        if (kaldirilacaklar.length > 0) await member.roles.remove(kaldirilacaklar).catch(() => {});
-        if (!member.roles.cache.has(eslesenRol.id)) await member.roles.add(eslesenRol);
-        return { durum: `<@&${eslesenRol.id}> rolü verildi.`, rol: eslesenRol };
-    } catch (err) {
-        return { durum: `Rol verilemedi: ${err.message}` };
-    }
-}
-
-async function tamRutbeIslemiYap({ guild, robloxKullaniciAdi, hedefRolId, hedefDiscordMember, yetkiliEtiket }) {
-    const ayar = sunucuAyarGetir(guild.id);
-    const groupId = ayar.robloxGrupId || DEFAULT_ROBLOX_GROUP_ID;
-    const [robloxUser, tumRoller] = await Promise.all([
-        robloxKullaniciBul(robloxKullaniciAdi),
-        robloxGrupRolleriniGetir(groupId, true)
-    ]);
-
-    const normAranan = turkceNormalize(String(hedefRolId));
-    const hedefRol = tumRoller.find(r => String(r.id) === String(hedefRolId))
-        || tumRoller.find(r => turkceNormalize(r.name) === normAranan)
-        || tumRoller.find(r => turkceNormalize(r.name).includes(normAranan));
-
-    if (!hedefRol) throw new Error(`"${hedefRolId}" rütbesi TSF Roblox grubunda bulunamadı.`);
-    if (hedefRol.rank === 0 || hedefRol.rank === 255) throw new Error('Bu rütbe sistem tarafından atanamaz.');
-
-    const mevcutBilgi = await robloxKullaniciGrupBilgisi(groupId, robloxUser.id);
-    if (!mevcutBilgi) throw new Error(`${robloxUser.username} TSF Roblox grubuna üye değil.`);
-
-    const sonuc = await robloxGrupRutbeDegistir(groupId, robloxUser.id, hedefRol);
-
-    let uye = hedefDiscordMember;
-    if (!uye) {
-        await guild.members.fetch().catch(() => {});
-        const aranan = robloxUser.username.toLowerCase();
-        uye = guild.members.cache.find(m =>
-            m.user.username.toLowerCase() === aranan ||
-            m.displayName.toLowerCase().includes(aranan)
-        ) || null;
-    }
-
-    const discordSonuc = await discordUyeRutbeSenkronizeEt(guild, uye, hedefRol, tumRoller);
-    logEkle(guild.id, 'RUTBE', 'Rütbe Ataması', `${robloxUser.username}: ${mevcutBilgi.roleName} → ${hedefRol.name}`, yetkiliEtiket);
-
-    return {
-        robloxUser,
-        eskiRolAdi: mevcutBilgi.roleName,
-        yeniRol: hedefRol,
-        yontem: sonuc.yontem,
-        discordUye: uye,
-        discordDurum: discordSonuc.durum
-    };
+    return Object.entries(gruplar)
+        .map(([sinif, adlar]) => `**${sinif}:**\n${adlar.map((a, i) => `${i + 1}. ${a}`).join('\n')}`)
+        .join('\n\n');
 }
 
 // ============================================================================
-// 7. CANLI SES DİNLEME & 48KHZ STEREO WAV KAYIT MOTORU
+// 7. ONARILMIŞ SES DİNLEME, WAV KAYIT + DISCORD ARŞİV + CANLI TTS ANONS
 // ============================================================================
 const aktifSesOturumlari = new Map();
 
@@ -713,13 +973,58 @@ function sseGonder(oturum, payload) {
     }
 }
 
+// Discord'un gelen ses paketlerini (SSRC) bot için aktif etmesi adına 5 paket sessizlik gönderir
+function sessizlikTetikle(connection) {
+    try {
+        if (!VoiceLib?.createAudioPlayer || !VoiceLib?.createAudioResource) return;
+        const silenceFrame = Buffer.from([0xF8, 0xFF, 0xFE]);
+        let count = 0;
+        const stream = new Readable({
+            read() {
+                if (count < 5) {
+                    count++;
+                    this.push(silenceFrame);
+                } else {
+                    this.push(null);
+                }
+            }
+        });
+        const player = VoiceLib.createAudioPlayer();
+        const resource = VoiceLib.createAudioResource(stream, { inputType: VoiceLib.StreamType.Opus });
+        connection.subscribe(player);
+        player.play(resource);
+    } catch (_) {}
+}
+
+function paketCozucuOlustur() {
+    if (NativeOpusEncoder) {
+        try {
+            const enc = new NativeOpusEncoder(48000, 2);
+            return (packet) => enc.decode(packet);
+        } catch (_) {}
+    }
+    if (OpusScriptClass) {
+        try {
+            const script = new OpusScriptClass(48000, 2, OpusScriptClass.Application.AUDIO);
+            return (packet) => Buffer.from(script.decode(packet));
+        } catch (_) {}
+    }
+    return null;
+}
+
 async function sesDinlemeBaslat(guild, kanalId, kayitYap = true) {
     if (!VoiceLib) throw new Error('Sunucuda @discordjs/voice paketi kurulu değil.');
+    if (sodiumReadyPromise) await sodiumReadyPromise.catch(() => {});
     if (aktifSesOturumlari.has(guild.id)) await sesDinlemeDurdur(guild.id);
 
     const kanal = guild.channels.cache.get(kanalId);
     if (!kanal || kanal.type !== ChannelType.GuildVoice) {
-        throw new Error('Geçerli bir ses kanalı bulunamadı.');
+        throw new Error('Geçerli bir ses kanalı seçin.');
+    }
+
+    const testCozucu = paketCozucuOlustur();
+    if (!testCozucu) {
+        throw new Error('Sunucuda Opus ses çözücü (opusscript / @discordjs/opus) bulunamadı.');
     }
 
     const connection = VoiceLib.joinVoiceChannel({
@@ -727,12 +1032,20 @@ async function sesDinlemeBaslat(guild, kanalId, kayitYap = true) {
         guildId: guild.id,
         adapterCreator: guild.voiceAdapterCreator,
         selfDeaf: false,
-        selfMute: true
+        selfMute: false
     });
 
     if (VoiceLib.entersState && VoiceLib.VoiceConnectionStatus) {
-        await VoiceLib.entersState(connection, VoiceLib.VoiceConnectionStatus.Ready, 10_000).catch(() => {});
+        try {
+            await VoiceLib.entersState(connection, VoiceLib.VoiceConnectionStatus.Ready, 15_000);
+        } catch (_) {
+            try { connection.destroy(); } catch (__) {}
+            throw new Error('Ses kanalına bağlanılamadı. Botun ses kanalına bağlanma ve konuşma izinlerini kontrol edin.');
+        }
     }
+
+    // KRİTİK: Discord'un ses alımını (UDP RX) başlatması için sessizlik çerçevesi gönder
+    sessizlikTetikle(connection);
 
     const oturum = {
         kanalId: kanal.id,
@@ -742,51 +1055,65 @@ async function sesDinlemeBaslat(guild, kanalId, kayitYap = true) {
         kayitYap: !!kayitYap,
         pcmChunks: [],
         aktifStreamler: new Map(),
+        alinanPaket: 0,
+        cozulenByte: 0,
         baslangic: Date.now()
     };
 
     aktifSesOturumlari.set(guild.id, oturum);
 
-    let prism = null;
-    try { prism = require('prism-media'); } catch (_) {}
+    const aboneOl = (userId) => {
+        if (!userId || userId === client.user?.id || oturum.aktifStreamler.has(userId)) return;
+        const decodeFn = paketCozucuOlustur();
+        if (!decodeFn) return;
+
+        try {
+            const opusStream = connection.receiver.subscribe(userId, {
+                end: { behavior: VoiceLib.EndBehaviorType.Manual }
+            });
+            oturum.aktifStreamler.set(userId, opusStream);
+
+            opusStream.on('data', (packet) => {
+                if (!packet || packet.length <= 3) return; // 3 baytlık Discord sessizlik/DTX paketini atla
+                oturum.alinanPaket += 1;
+                try {
+                    const pcm = decodeFn(packet);
+                    if (pcm && pcm.length > 0) {
+                        oturum.cozulenByte += pcm.length;
+                        if (oturum.kayitYap) oturum.pcmChunks.push(Buffer.from(pcm));
+                        if (oturum.streamClients.size > 0) {
+                            sseGonder(oturum, {
+                                type: 'audio',
+                                userId,
+                                pcm: pcm.toString('base64'),
+                                paket: oturum.alinanPaket
+                            });
+                        }
+                    }
+                } catch (_) {
+                    // Tekil bozuk paketi yut, akışı kesinlikle durdurma!
+                }
+            });
+
+            const temizle = () => oturum.aktifStreamler.delete(userId);
+            opusStream.on('end', temizle);
+            opusStream.on('error', temizle);
+        } catch (err) {
+            console.warn('Ses abonelik uyarısı:', err.message);
+            oturum.aktifStreamler.delete(userId);
+        }
+    };
+
+    for (const [mId, member] of kanal.members) {
+        if (!member.user.bot) aboneOl(mId);
+    }
 
     const receiver = connection.receiver;
     receiver.speaking.on('start', (userId) => {
         const uye = guild.members.cache.get(userId);
         const ad = uye ? uye.displayName : userId;
         sseGonder(oturum, { type: 'speaking', userId, kullaniciAdi: ad, durum: true });
-
-        if (oturum.aktifStreamler.has(userId)) return;
-
-        try {
-            const opusStream = receiver.subscribe(userId, {
-                end: { behavior: VoiceLib.EndBehaviorType.Manual }
-            });
-
-            if (prism) {
-                const decoder = new prism.opus.Decoder({ rate: 48000, channels: 2, frameSize: 960 });
-                opusStream.pipe(decoder);
-                oturum.aktifStreamler.set(userId, { opusStream, decoder });
-
-                decoder.on('data', (pcm) => {
-                    if (!pcm || pcm.length === 0) return;
-                    if (oturum.kayitYap) oturum.pcmChunks.push(Buffer.from(pcm));
-                    if (oturum.streamClients.size > 0) {
-                        sseGonder(oturum, { type: 'audio', userId, pcm: pcm.toString('base64') });
-                    }
-                });
-
-                const temizle = () => oturum.aktifStreamler.delete(userId);
-                decoder.on('end', temizle);
-                decoder.on('error', temizle);
-                opusStream.on('error', temizle);
-            } else {
-                oturum.aktifStreamler.set(userId, { opusStream, decoder: null });
-                opusStream.on('end', () => oturum.aktifStreamler.delete(userId));
-            }
-        } catch (err) {
-            oturum.aktifStreamler.delete(userId);
-        }
+        aboneOl(userId);
     });
 
     receiver.speaking.on('end', (userId) => {
@@ -800,9 +1127,8 @@ async function sesDinlemeDurdur(guildId) {
     const oturum = aktifSesOturumlari.get(guildId);
     if (!oturum) return null;
 
-    for (const { opusStream, decoder } of oturum.aktifStreamler.values()) {
+    for (const opusStream of oturum.aktifStreamler.values()) {
         try { opusStream.destroy(); } catch (_) {}
-        try { if (decoder) decoder.end(); } catch (_) {}
     }
     oturum.aktifStreamler.clear();
     await new Promise(r => setTimeout(r, 150));
@@ -813,19 +1139,46 @@ async function sesDinlemeDurdur(guildId) {
     }
     aktifSesOturumlari.delete(guildId);
 
-    let dosyaAdi = null;
+    const bilgi = { dosyaAdi: null, alinanPaket: oturum.alinanPaket, cozulenByte: oturum.cozulenByte, discordUrl: '' };
+
     if (oturum.kayitYap && oturum.pcmChunks.length > 0) {
         const toplamPcm = Buffer.concat(oturum.pcmChunks);
         const wavBuffer = pcmToWavBuffer(toplamPcm);
-        dosyaAdi = `kayit_${guildId}_${Date.now()}.wav`;
+        const dosyaAdi = `kayit_${guildId}_${Date.now()}.wav`;
         fs.writeFileSync(path.join(KAYITLAR_DIR, dosyaAdi), wavBuffer);
 
         const sureSaniye = Math.max(1, Math.round(toplamPcm.length / (48000 * 2 * 2)));
+        let discordUrl = '';
+
+        // Discord Ses Arşiv Kanalına Kalıcı Yedekle (Render disk silinse bile kaybolmaz!)
+        const guild = client.guilds.cache.get(guildId);
+        const ayar = sunucuAyarGetir(guildId);
+        const arsivKanalId = ayar.sesArsivKanal || ayar.sesLogKanal;
+        if (guild && arsivKanalId && wavBuffer.length < 24 * 1024 * 1024) {
+            const arsivKanal = guild.channels.cache.get(arsivKanalId);
+            if (arsivKanal) {
+                try {
+                    const attachment = new AttachmentBuilder(wavBuffer, { name: dosyaAdi });
+                    const msg = await arsivKanal.send({
+                        content: `📼 **Ses Kaydı Arşivlendi** | Kanal: **#${oturum.kanalAdi}** | Süre: **${sureSaniye} sn**`,
+                        files: [attachment]
+                    });
+                    discordUrl = msg.attachments.first()?.url || '';
+                } catch (e) {
+                    console.warn('Discord ses yedekleme uyarısı:', e.message);
+                }
+            }
+        }
+
+        bilgi.dosyaAdi = dosyaAdi;
+        bilgi.discordUrl = discordUrl;
+
         db.sesKayitlari.unshift({
             id: crypto.randomUUID(),
             guildId,
             kanalAdi: oturum.kanalAdi,
             dosyaAdi,
+            discordUrl,
             sureSaniye,
             tutanak: '',
             tarih: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
@@ -833,7 +1186,42 @@ async function sesDinlemeDurdur(guildId) {
         dbKaydet(true);
     }
 
-    return { dosyaAdi };
+    return bilgi;
+}
+
+// Canlı Telsiz / TTS Anons Oynatıcı
+async function sesKanalinaAnonsYap(guild, kanalId, metin) {
+    if (!VoiceLib) throw new Error('@discordjs/voice yüklü değil.');
+    if (sodiumReadyPromise) await sodiumReadyPromise.catch(() => {});
+    const kanal = guild.channels.cache.get(kanalId);
+    if (!kanal || kanal.type !== ChannelType.GuildVoice) throw new Error('Geçerli bir ses kanalı seçin.');
+
+    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=tr&client=tw-ob&q=${encodeURIComponent(metin.slice(0, 200))}`;
+    const res = await guvenliFetch(ttsUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (!res.ok) throw new Error('TTS ses servisi yanıt vermedi.');
+    const audioBuf = Buffer.from(await res.arrayBuffer());
+
+    const connection = VoiceLib.joinVoiceChannel({
+        channelId: kanal.id,
+        guildId: guild.id,
+        adapterCreator: guild.voiceAdapterCreator,
+        selfDeaf: false,
+        selfMute: false
+    });
+
+    await VoiceLib.entersState(connection, VoiceLib.VoiceConnectionStatus.Ready, 12_000).catch(() => {});
+    const player = VoiceLib.createAudioPlayer();
+    const resource = VoiceLib.createAudioResource(Readable.from(audioBuf));
+    connection.subscribe(player);
+    player.play(resource);
+
+    player.on(VoiceLib.AudioPlayerStatus.Idle, () => {
+        setTimeout(() => {
+            if (!aktifSesOturumlari.has(guild.id)) {
+                try { connection.destroy(); } catch (_) {}
+            }
+        }, 1200);
+    });
 }
 
 // ============================================================================
@@ -854,13 +1242,12 @@ const client = new Client({
 const slashKomutlar = [
     new SlashCommandBuilder()
         .setName('rütbe')
-        .setDescription('TSF Roblox & Discord rütbe yönetim komutları')
+        .setDescription('TSF Roblox rütbe yönetimi (Discord rolleri /update ile eşitlenir)')
         .addSubcommand(sub =>
             sub.setName('ver')
-                .setDescription('TSF Roblox ve Discord rütbesi verir')
+                .setDescription('TSF Roblox grubunda rütbe verir (kendi rütbenden yüksek veremezsin)')
                 .addStringOption(opt => opt.setName('kullanici').setDescription('Roblox kullanıcı adı').setRequired(true))
                 .addStringOption(opt => opt.setName('rutbe').setDescription('Verilecek TSF rütbesi').setRequired(true).setAutocomplete(true))
-                .addUserOption(opt => opt.setName('discord_uye').setDescription('Discord üyesi (opsiyonel)').setRequired(false))
                 .addStringOption(opt => opt.setName('sebep').setDescription('Sebep').setRequired(false))
         )
         .addSubcommand(sub =>
@@ -873,73 +1260,149 @@ const slashKomutlar = [
                 .setDescription('Güncel TSF rütbe hiyerarşisini listeler')
         ),
     new SlashCommandBuilder()
+        .setName('update')
+        .setDescription('Roblox rütbenize göre Discord rollerinizi günceller (Eklenen / Çıkarılan Roller)')
+        .addUserOption(opt => opt.setName('uye').setDescription('Güncellenecek üye (boşsa kendiniz)').setRequired(false))
+        .addStringOption(opt => opt.setName('roblox_adi').setDescription('Doğrulanmadıysa Roblox kullanıcı adınız').setRequired(false)),
+    new SlashCommandBuilder()
+        .setName('doğrula')
+        .setDescription('Roblox hesabınızı Discord hesabınıza kalıcı olarak bağlar')
+        .addSubcommand(sub =>
+            sub.setName('baslat')
+                .setDescription('Doğrulama kodu oluşturur')
+                .addStringOption(opt => opt.setName('roblox_adi').setDescription('Roblox kullanıcı adınız').setRequired(true))
+        )
+        .addSubcommand(sub =>
+            sub.setName('onayla')
+                .setDescription('Profil açıklamanıza eklediğiniz kodu doğrulayıp hesabınızı bağlar')
+        ),
+    new SlashCommandBuilder()
+        .setName('sınav')
+        .setDescription('Acemi Eğitimi & Otomatik Terfi Sınavı')
+        .addSubcommand(sub => sub.setName('baslat').setDescription('Acemi Er -> Onbaşı terfi sınavını başlatır')),
+    new SlashCommandBuilder()
+        .setName('sicil')
+        .setDescription('Madalya, bröve ve disiplin (inzibat) kayıtları')
+        .addSubcommand(sub =>
+            sub.setName('madalya-ver')
+                .setDescription('Personele madalya veya bröve verir')
+                .addUserOption(opt => opt.setName('uye').setDescription('Personel').setRequired(true))
+                .addStringOption(opt => opt.setName('madalya').setDescription('Madalya / Bröve adı').setRequired(true))
+                .addStringOption(opt => opt.setName('aciklama').setDescription('Verilme sebebi').setRequired(false))
+        )
+        .addSubcommand(sub =>
+            sub.setName('disiplin-ekle')
+                .setDescription('Personele inzibat / disiplin kaydı işler')
+                .addUserOption(opt => opt.setName('uye').setDescription('Personel').setRequired(true))
+                .addStringOption(opt => opt.setName('tur').setDescription('Ceza türü (Kınama / Gözaltı / Rütbe Tenzili)').setRequired(true))
+                .addStringOption(opt => opt.setName('sebep').setDescription('Sebep').setRequired(true))
+        ),
+    new SlashCommandBuilder()
+        .setName('karaliste')
+        .setDescription('Ortak Kara Liste (Blacklist) yönetimi')
+        .addSubcommand(sub =>
+            sub.setName('ekle')
+                .setDescription('Bir kişiyi kara listeye alır')
+                .addStringOption(opt => opt.setName('sebep').setDescription('Kara liste sebebi').setRequired(true))
+                .addUserOption(opt => opt.setName('discord_uye').setDescription('Discord üyesi').setRequired(false))
+                .addStringOption(opt => opt.setName('roblox_adi').setDescription('Roblox kullanıcı adı').setRequired(false))
+        )
+        .addSubcommand(sub => sub.setName('liste').setDescription('Kara listedeki kayıtları gösterir')),
+    new SlashCommandBuilder()
+        .setName('çekiliş')
+        .setDescription('Detaylı ve şartlı çekiliş sistemi')
+        .addSubcommand(sub =>
+            sub.setName('baslat')
+                .setDescription('Yeni bir çekiliş başlatır')
+                .addStringOption(opt => opt.setName('odul').setDescription('Çekiliş ödülü').setRequired(true))
+                .addIntegerOption(opt => opt.setName('sure_dakika').setDescription('Süre (dakika)').setMinValue(1).setMaxValue(43200).setRequired(true))
+                .addIntegerOption(opt => opt.setName('kazanan_sayisi').setDescription('Kazanan sayısı').setMinValue(1).setMaxValue(20).setRequired(false))
+                .addRoleOption(opt => opt.setName('sart_rol').setDescription('Katılım için gerekli rol (opsiyonel)').setRequired(false))
+                .addIntegerOption(opt => opt.setName('sart_seviye').setDescription('Minimum seviye şartı (opsiyonel)').setMinValue(0).setRequired(false))
+        )
+        .addSubcommand(sub =>
+            sub.setName('bitir')
+                .setDescription('Aktif bir çekilişi erken bitirip kazananları açıklar')
+                .addStringOption(opt => opt.setName('id').setDescription('Çekiliş ID').setRequired(true))
+        )
+        .addSubcommand(sub =>
+            sub.setName('yeniden-cek')
+                .setDescription('Bitmiş bir çekiliş için yeni kazanan seçer (Reroll)')
+                .addStringOption(opt => opt.setName('id').setDescription('Çekiliş ID').setRequired(true))
+        ),
+    new SlashCommandBuilder()
         .setName('moderasyon')
-        .setDescription('Gelişmiş komuta ve disiplin moderasyon işlemleri')
+        .setDescription('Komuta ve disiplin moderasyon işlemleri')
         .addSubcommand(sub =>
             sub.setName('uyar')
-                .setDescription('Bir personele resmi uyarı verir')
+                .setDescription('Resmi uyarı verir ve uyarı merdivenini uygular')
                 .addUserOption(opt => opt.setName('uye').setDescription('Uyarılacak üye').setRequired(true))
                 .addStringOption(opt => opt.setName('sebep').setDescription('Uyarı sebebi').setRequired(true))
         )
         .addSubcommand(sub =>
             sub.setName('uyarilar')
-                .setDescription('Personelin sicil uyarı kayıtlarını listeler')
-                .addUserOption(opt => opt.setName('uye').setDescription('Sorgulanacak üye').setRequired(true))
+                .setDescription('Personelin uyarı kayıtlarını gösterir')
+                .addUserOption(opt => opt.setName('uye').setDescription('Personel').setRequired(true))
         )
         .addSubcommand(sub =>
             sub.setName('sustur')
-                .setDescription('Üyeye süreli susturma (timeout) uygular')
-                .addUserOption(opt => opt.setName('uye').setDescription('Susturulacak üye').setRequired(true))
-                .addIntegerOption(opt => opt.setName('dakika').setDescription('Süre (dakika)').setMinValue(1).setMaxValue(10080).setRequired(true))
+                .setDescription('Üyeyi süreli susturur (timeout)')
+                .addUserOption(opt => opt.setName('uye').setDescription('Üye').setRequired(true))
+                .addIntegerOption(opt => opt.setName('dakika').setDescription('Süre (dk)').setMinValue(1).setMaxValue(10080).setRequired(true))
                 .addStringOption(opt => opt.setName('sebep').setDescription('Sebep').setRequired(false))
         )
         .addSubcommand(sub =>
             sub.setName('at')
-                .setDescription('Üyeyi sunucudan atar (Kick)')
-                .addUserOption(opt => opt.setName('uye').setDescription('Atılacak üye').setRequired(true))
+                .setDescription('Üyeyi sunucudan atar')
+                .addUserOption(opt => opt.setName('uye').setDescription('Üye').setRequired(true))
                 .addStringOption(opt => opt.setName('sebep').setDescription('Sebep').setRequired(false))
         )
         .addSubcommand(sub =>
             sub.setName('yasakla')
-                .setDescription('Üyeyi sunucudan kalıcı yasaklar (Ban)')
-                .addUserOption(opt => opt.setName('uye').setDescription('Yasaklanacak üye').setRequired(true))
+                .setDescription('Üyeyi sunucudan yasaklar')
+                .addUserOption(opt => opt.setName('uye').setDescription('Üye').setRequired(true))
                 .addStringOption(opt => opt.setName('sebep').setDescription('Sebep').setRequired(false))
         )
         .addSubcommand(sub =>
             sub.setName('temizle')
-                .setDescription('Kanaldaki son mesajları toplu siler')
-                .addIntegerOption(opt => opt.setName('adet').setDescription('Silinecek mesaj sayısı (1-100)').setMinValue(1).setMaxValue(100).setRequired(true))
+                .setDescription('Kanaldaki mesajları siler')
+                .addIntegerOption(opt => opt.setName('adet').setDescription('Adet (1-100)').setMinValue(1).setMaxValue(100).setRequired(true))
         )
         .addSubcommand(sub =>
             sub.setName('kilit')
-                .setDescription('Kanalı mesaj gönderimine kilitler veya açar')
-                .addBooleanOption(opt => opt.setName('durum').setDescription('True = Kilitle, False = Kilidi Aç').setRequired(true))
+                .setDescription('Kanalı kilitler veya açar')
+                .addBooleanOption(opt => opt.setName('durum').setDescription('True = Kilitle, False = Aç').setRequired(true))
         ),
     new SlashCommandBuilder()
         .setName('ses-odasi')
         .setDescription('Özel veya herkese açık ses odası oluşturur')
         .addSubcommand(sub =>
             sub.setName('olustur')
-                .setDescription('Yeni bir ses odası oluşturur')
+                .setDescription('Yeni ses odası oluşturur')
                 .addStringOption(opt => opt.setName('isim').setDescription('Oda ismi').setRequired(true))
-                .addIntegerOption(opt => opt.setName('limit').setDescription('Kişi limiti (0 = sınırsız, 1-99)').setMinValue(0).setMaxValue(99).setRequired(false))
-                .addBooleanOption(opt => opt.setName('ozel').setDescription('Oda özel/kilitli olsun mu?').setRequired(false))
-                .addUserOption(opt => opt.setName('izinli_uye').setDescription('Özel odaya girebilecek üye').setRequired(false))
-                .addRoleOption(opt => opt.setName('izinli_rol').setDescription('Özel odaya girebilecek rol').setRequired(false))
+                .addIntegerOption(opt => opt.setName('limit').setDescription('Kişi limiti (0=Sınırsız)').setMinValue(0).setMaxValue(99).setRequired(false))
+                .addBooleanOption(opt => opt.setName('ozel').setDescription('Özel/Kilitli olsun mu?').setRequired(false))
+                .addUserOption(opt => opt.setName('izinli_uye').setDescription('İzinli üye').setRequired(false))
+                .addRoleOption(opt => opt.setName('izinli_rol').setDescription('İzinli rol').setRequired(false))
         ),
+    new SlashCommandBuilder()
+        .setName('anons')
+        .setDescription('Ses kanalına canlı telsiz/TTS anonsu yapar')
+        .addChannelOption(opt => opt.setName('kanal').setDescription('Ses kanalı').addChannelTypes(ChannelType.GuildVoice).setRequired(true))
+        .addStringOption(opt => opt.setName('mesaj').setDescription('Okunacak anons metni').setRequired(true)),
     new SlashCommandBuilder()
         .setName('izin')
         .setDescription('İzin / Mazeret (LOA) talep sistemi')
         .addSubcommand(sub =>
             sub.setName('talep')
-                .setDescription('Komuta merkezine izin/mazeret (LOA) talebi gönderir')
-                .addIntegerOption(opt => opt.setName('gun').setDescription('İzin süresi (gün)').setMinValue(1).setMaxValue(60).setRequired(true))
-                .addStringOption(opt => opt.setName('sebep').setDescription('Mazeret / İzin sebebi').setRequired(true))
+                .setDescription('Mazeret/LOA talebi oluşturur')
+                .addIntegerOption(opt => opt.setName('gun').setDescription('Süre (gün)').setMinValue(1).setMaxValue(60).setRequired(true))
+                .addStringOption(opt => opt.setName('sebep').setDescription('Sebep').setRequired(true))
         ),
     new SlashCommandBuilder()
         .setName('kimlik')
-        .setDescription('Personel sicil, rütbe, nöbet ve seviye kartını gösterir')
-        .addUserOption(opt => opt.setName('uye').setDescription('Görüntülenecek personel').setRequired(false)),
+        .setDescription('Personel sicil, rütbe, madalya, disiplin ve nöbet kartı')
+        .addUserOption(opt => opt.setName('uye').setDescription('Personel').setRequired(false)),
     new SlashCommandBuilder()
         .setName('yardim')
         .setDescription('ORDU YÖNETİMİ botunun tüm komutlarını gösterir')
@@ -954,28 +1417,110 @@ async function slashKomutlariKaydet() {
         for (const guild of client.guilds.cache.values()) {
             await rest.put(Routes.applicationGuildCommands(CLIENT_ID, guild.id), { body }).catch(() => {});
         }
-        console.log('⚡ Slash komutları kaydedildi.');
+        console.log('⚡ Tüm Slash komutları kaydedildi.');
     } catch (err) {
         console.error('⚠️ Slash komut kayıt uyarısı:', err.message);
     }
 }
 
+// Çekiliş Sonlandırma Motoru
+async function cekilisSonlandir(guild, ayar, cekilis, reroll = false) {
+    const katilanlar = [...(cekilis.katilanlar || [])];
+    const kazananSayisi = Math.min(cekilis.kazananSayisi || 1, katilanlar.length);
+    const karisik = katilanlar.sort(() => Math.random() - 0.5);
+    const kazananlar = karisik.slice(0, kazananSayisi);
+
+    cekilis.bitti = true;
+    cekilis.kazananlar = kazananlar;
+    dbKaydet();
+
+    const kanal = guild.channels.cache.get(cekilis.kanalId);
+    if (!kanal) return kazananlar;
+
+    const kazananMetin = kazananlar.length ? kazananlar.map(id => `<@${id}>`).join(', ') : 'Yeterli katılım olmadığı için kazanan çıkmadı.';
+    const msg = await kanal.messages.fetch(cekilis.mesajId).catch(() => null);
+    if (msg) {
+        const embed = new EmbedBuilder()
+            .setColor('#10b981')
+            .setTitle(`🎉 ÇEKİLİŞ TAMAMLANDI: ${cekilis.odul}`)
+            .setDescription(`**Kazanan(lar):** ${kazananMetin}\n**Toplam Katılımcı:** ${katilanlar.length} kişi\n**Çekiliş ID:** \`${cekilis.id}\``)
+            .setTimestamp();
+        await msg.edit({ embeds: [embed], components: [] }).catch(() => {});
+    }
+
+    await kanal.send({
+        content: kazananlar.length
+            ? `🎊 ${reroll ? '**[YENİDEN ÇEKİM]** ' : ''}Tebrikler ${kazananMetin}! **${cekilis.odul}** çekilişini kazandınız!`
+            : `ℹ️ **${cekilis.odul}** çekilişi katılımcı olmadığı için kazanan olmadan sonlandı.`
+    }).catch(() => {});
+
+    logEkle(guild.id, 'CEKILIS', reroll ? 'Çekiliş Yeniden Çekildi' : 'Çekiliş Sonlandı', `${cekilis.odul} — Kazanan: ${kazananlar.join(', ') || 'Yok'}`, 'Sistem');
+    return kazananlar;
+}
+
+// Uyarı Merdiveni Uygulayıcı (Panelden Ayarlanan Kurallar)
+async function uyariEkleVeMerdivenUygula(guild, member, ayar, yetkiliTag, sebep) {
+    ayar.uyarilar.unshift({
+        id: crypto.randomUUID(),
+        kullaniciId: member.id,
+        kullaniciTag: member.user.tag,
+        yetkili: yetkiliTag,
+        sebep,
+        tarih: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
+    });
+    const toplam = ayar.uyarilar.filter(u => u.kullaniciId === member.id).length;
+    const kurallar = (ayar.automod?.uyariKurallari || VARSAYILAN_UYARI_KURALLARI).sort((a, b) => a.esik - b.esik);
+    const eslesenKural = kurallar.find(k => Number(k.esik) === toplam);
+
+    let uygulananCeza = 'Resmi Uyarı Kaydedildi';
+    if (eslesenKural && String(member.id) !== SUPER_ADMIN_ID) {
+        if (eslesenKural.aksiyon === 'timeout') {
+            const dk = Math.max(1, Number(eslesenKural.sureDk) || 10);
+            await member.timeout(dk * 60 * 1000, `Uyarı Merdiveni (${toplam}. uyarı): ${sebep}`).catch(() => {});
+            uygulananCeza = `${dk} dakika susturma (Timeout)`;
+        } else if (eslesenKural.aksiyon === 'kick') {
+            await member.kick(`Uyarı Merdiveni (${toplam}. uyarı): ${sebep}`).catch(() => {});
+            uygulananCeza = 'Sunucudan Atıldı (Kick)';
+        } else if (eslesenKural.aksiyon === 'ban') {
+            await member.ban({ reason: `Uyarı Merdiveni (${toplam}. uyarı): ${sebep}` }).catch(() => {});
+            uygulananCeza = 'Kalıcı Yasaklandı (Ban)';
+        }
+    }
+
+    dbKaydet();
+    return { toplam, uygulananCeza };
+}
+
 client.once('ready', async () => {
-    console.log(`👑 ORDU YÖNETİMİ Bot Aktif: ${client.user.tag}`);
+    console.log(`👑 ORDU YÖNETİMİ v5.0 Bot Aktif: ${client.user.tag} | Opus Motoru: ${opusEngineName}`);
     client.user.setActivity('TSF Komuta Ağı | /yardim', { type: 3 });
     await slashKomutlariKaydet();
 
-    // Periyodik LOA Süre Kontrolü
+    // Sunucu üyelerini ön belleğe al (AI ve Sicil sorguları eksiksiz çalışsın)
+    for (const guild of client.guilds.cache.values()) {
+        guild.members.fetch().catch(() => {});
+    }
+
+    // Periyodik Çekiliş & LOA Kontrolü (15 saniyede bir)
     setInterval(async () => {
         const simdi = Date.now();
         for (const [guildId, ayar] of Object.entries(db.sunucular)) {
             const guild = client.guilds.cache.get(guildId);
-            if (!guild || !ayar.loaTalepleri) continue;
-            let degisti = false;
-            for (const loa of ayar.loaTalepleri) {
+            if (!guild) continue;
+
+            // Çekiliş Süre Kontrolü
+            for (const c of (ayar.cekilisler || [])) {
+                if (!c.bitti && c.bitisTimestamp && simdi >= c.bitisTimestamp) {
+                    await cekilisSonlandir(guild, ayar, c, false).catch(() => {});
+                }
+            }
+
+            // LOA Süre Kontrolü
+            let loaDegisti = false;
+            for (const loa of (ayar.loaTalepleri || [])) {
                 if (loa.durum === 'onaylandi' && loa.bitisTimestamp && simdi >= loa.bitisTimestamp) {
                     loa.durum = 'tamamlandi';
-                    degisti = true;
+                    loaDegisti = true;
                     const member = await guild.members.fetch(loa.userId).catch(() => null);
                     const rol = (ayar.izinliRolId && guild.roles.cache.get(ayar.izinliRolId))
                         || guild.roles.cache.find(r => r.name.toLowerCase().includes('izinli'));
@@ -985,14 +1530,13 @@ client.once('ready', async () => {
                     logEkle(guildId, 'LOA', 'İzin Süresi Doldu', `${loa.username} görevine döndü`, 'Sistem');
                 }
             }
-            if (degisti) dbKaydet();
+            if (loaDegisti) dbKaydet();
         }
-    }, 5 * 60 * 1000);
+    }, 15_000);
 });
 
 client.on('error', (err) => console.error('⚠️ Discord Client Hatası:', err?.message || err));
 
-// Yardımcı: Mod Log Kanalına Embed Gönder
 async function modLogEmbedGonder(guild, ayar, embed) {
     const hedefId = ayar.modLogKanal || ayar.mesajLogKanal;
     if (!hedefId) return;
@@ -1000,33 +1544,44 @@ async function modLogEmbedGonder(guild, ayar, embed) {
     if (kanal) await kanal.send({ embeds: [embed] }).catch(() => {});
 }
 
+// Aktif Sınav Oturumları: `${guildId}_${userId}` -> { index, dogruSayisi, sorular }
+const aktifSinavlar = new Map();
+
+function sinavSoruMesajiOlustur(oturum) {
+    const s = oturum.sorular[oturum.index];
+    const embed = new EmbedBuilder()
+        .setColor('#3b82f6')
+        .setTitle(`📝 TSF Acemi Eğitimi Sınavı (Soru ${oturum.index + 1}/${oturum.sorular.length})`)
+        .setDescription(`**${s.soru}**\n\n` + s.secenekler.map((sec, i) => `**${['A', 'B', 'C', 'D'][i]})** ${sec}`).join('\n'));
+
+    const row = new ActionRowBuilder().addComponents(
+        s.secenekler.map((_, i) => new ButtonBuilder()
+            .setCustomId(`sinav_cevap_${i}`)
+            .setLabel(['A', 'B', 'C', 'D'][i])
+            .setStyle(ButtonStyle.Primary))
+    );
+    return { embeds: [embed], components: [row], ephemeral: true };
+}
+
 // ============================================================================
-// 9. ETKİLEŞİMLER (SLASH, AUTOCOMPLETE, SES ODASI PANELİ, TICKET, MODAL)
+// 9. ETKİLEŞİMLER (SLASH, AUTOCOMPLETE, BUTONLAR, MODALLAR)
 // ============================================================================
 client.on('interactionCreate', async (interaction) => {
     try {
-        // 1. AUTOCOMPLETE (/rütbe ver -> rutbe)
+        // 1. AUTOCOMPLETE
         if (interaction.isAutocomplete()) {
             if (interaction.commandName === 'rütbe') {
                 const aranan = turkceNormalize(interaction.options.getFocused());
                 const ayar = sunucuAyarGetir(interaction.guildId);
                 let roller = await robloxGrupRolleriniGetir(ayar.robloxGrupId || DEFAULT_ROBLOX_GROUP_ID).catch(() => []);
-
-                // Eğer Roblox API yanıt vermezse kayıtlı TSF hiyerarşisini yedek olarak kullan
                 if (roller.length === 0) {
-                    roller = (ayar.tsfRutbeler || VARSAYILAN_TSF_RUTBELER).map((r, idx) => ({
-                        id: r.ad,
-                        name: r.ad,
-                        rank: idx + 1
-                    }));
+                    roller = (ayar.tsfRutbeler || VARSAYILAN_TSF_RUTBELER).map((r, idx) => ({ id: r.ad, name: r.ad, rank: idx + 1 }));
                 }
-
                 const filtrelenmis = roller
                     .filter(r => r.rank > 0 && r.rank < 255)
                     .filter(r => !aranan || turkceNormalize(r.name).includes(aranan))
                     .slice(0, 25)
                     .map(r => ({ name: `${r.name} (Rank ${r.rank})`, value: String(r.id) }));
-
                 await interaction.respond(filtrelenmis);
             }
             return;
@@ -1035,17 +1590,208 @@ client.on('interactionCreate', async (interaction) => {
         // 2. SLASH KOMUTLAR
         if (interaction.isChatInputCommand()) {
             const ayar = sunucuAyarGetir(interaction.guildId);
+            const superMi = interaction.user.id === SUPER_ADMIN_ID;
+            const yoneticiMi = superMi || interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
             if (interaction.commandName === 'yardim') {
                 const embed = new EmbedBuilder()
                     .setColor(ayar.tema.primary || '#3b82f6')
                     .setTitle(`🎖️ ${ayar.tema.baslik} — Komuta Rehberi`)
                     .addFields(
-                        { name: '🎖️ Rütbe & Sicil', value: '`/rütbe ver`, `/rütbe sorgula`, `/rütbe liste`, `/kimlik`' },
-                        { name: '⚖️ Moderasyon', value: '`/moderasyon uyar`, `/moderasyon uyarilar`, `/moderasyon sustur`, `/moderasyon at`, `/moderasyon yasakla`, `/moderasyon temizle`, `/moderasyon kilit`' },
-                        { name: '🎙️ Özel Ses Odası & İzin', value: '`/ses-odasi olustur` — Özel/limitli ses odası\n`/izin talep` — Mazeret/LOA talebi' }
+                        { name: '🎖️ Rütbe & Doğrulama', value: '`/doğrula baslat` / `onayla` — Roblox hesabı bağla\n`/update` — Roblox rütbene göre Discord rollerini güncelle\n`/rütbe ver` / `sorgula` / `liste` — Rütbe yönetimi\n`/sınav baslat` — Acemi Er -> Onbaşı terfi sınavı' },
+                        { name: '🪪 Sicil, Kara Liste & Çekiliş', value: '`/kimlik` — Rütbe, madalya, disiplin ve nöbet kartı\n`/sicil madalya-ver` / `disiplin-ekle`\n`/karaliste ekle` / `liste`\n`/çekiliş baslat` / `bitir` / `yeniden-cek`' },
+                        { name: '⚖️ Moderasyon & Ses', value: '`/moderasyon uyar/uyarilar/sustur/at/yasakla/temizle/kilit`\n`/ses-odasi olustur` • `/anons` • `/izin talep`' }
                     );
                 return interaction.reply({ embeds: [embed], ephemeral: true });
+            }
+
+            if (interaction.commandName === 'doğrula') {
+                const alt = interaction.options.getSubcommand();
+                if (alt === 'baslat') {
+                    await interaction.deferReply({ ephemeral: true });
+                    const rAdi = interaction.options.getString('roblox_adi');
+                    const rUser = await robloxKullaniciBul(rAdi);
+                    const kod = 'TSF-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+                    ayar.bekleyenDogrulamalar[interaction.user.id] = {
+                        robloxId: rUser.id,
+                        robloxUsername: rUser.username,
+                        kod,
+                        zaman: Date.now()
+                    };
+                    dbKaydet();
+                    const embed = new EmbedBuilder()
+                        .setColor('#3b82f6')
+                        .setTitle('🔐 Roblox Hesap Doğrulama — 1. Adım')
+                        .setThumbnail(rUser.avatarUrl)
+                        .setDescription(`**${rUser.username}** hesabını doğrulamak için aşağıdaki kodu Roblox profil açıklamanıza (**About / Biyografi**) yapıştırın:\n\n\`\`\`\n${kod}\n\`\`\`\nArdından \`/doğrula onayla\` komutunu kullanın.`);
+                    return interaction.editReply({ embeds: [embed] });
+                }
+                if (alt === 'onayla') {
+                    await interaction.deferReply({ ephemeral: true });
+                    const bekleyen = ayar.bekleyenDogrulamalar?.[interaction.user.id];
+                    if (!bekleyen) return interaction.editReply('❌ Önce `/doğrula baslat <roblox_adi>` komutunu kullanmalısınız.');
+                    const detay = await robloxKullaniciDetayGetir(bekleyen.robloxId);
+                    if (!String(detay.description || '').includes(bekleyen.kod)) {
+                        return interaction.editReply(`❌ Profil açıklamanızda \`${bekleyen.kod}\` kodu bulunamadı! Lütfen Roblox "About" kısmına kaydedip tekrar deneyin.`);
+                    }
+                    // Kara liste kontrolü
+                    const kara = (ayar.karaListe || []).find(k => k.robloxId === bekleyen.robloxId || k.discordId === interaction.user.id);
+                    if (kara) {
+                        return interaction.editReply(`⛔ Bu hesap ortak kara listededir! Sebep: **${kara.sebep}**`);
+                    }
+                    ayar.dogrulamalar[interaction.user.id] = {
+                        robloxId: bekleyen.robloxId,
+                        robloxUsername: bekleyen.robloxUsername,
+                        tarih: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
+                    };
+                    delete ayar.bekleyenDogrulamalar[interaction.user.id];
+                    logEkle(interaction.guildId, 'RUTBE', 'Roblox Doğrulandı', `${interaction.user.tag} ↔ ${bekleyen.robloxUsername}`, interaction.user.tag);
+                    return interaction.editReply(`✅ Hesabınız başarıyla **${bekleyen.robloxUsername}** olarak doğrulandı! Şimdi \`/update\` yazarak Discord rollerinizi güncelleyebilirsiniz.`);
+                }
+            }
+
+            if (interaction.commandName === 'update') {
+                await interaction.deferReply();
+                const hedefUser = interaction.options.getUser('uye') || interaction.user;
+                const rAdi = interaction.options.getString('roblox_adi');
+                const hedefMember = await interaction.guild.members.fetch(hedefUser.id);
+                const sonuc = await kullaniciRolleriniGuncelle(interaction.guild, hedefMember, ayar, rAdi);
+
+                const eklenenTxt = sonuc.eklenenRoller.length ? sonuc.eklenenRoller.map(r => `➕ <@&${r.id}>`).join('\n') : '• Eklenen rol yok';
+                const cikarilanTxt = sonuc.cikarilanRoller.length ? sonuc.cikarilanRoller.map(r => `➖ <@&${r.id}>`).join('\n') : '• Çıkarılan rol yok';
+
+                const embed = new EmbedBuilder()
+                    .setColor('#10b981')
+                    .setTitle('🔄 TSF Rol Güncellemesi Tamamlandı (/update)')
+                    .setThumbnail(sonuc.robloxUser.avatarUrl)
+                    .addFields(
+                        { name: '👤 Personel', value: `${hedefUser} (**${sonuc.robloxUser.username}**)`, inline: true },
+                        { name: '🎖️ Güncel Roblox Rütbesi', value: `**${sonuc.grupBilgi.roleName}** (Rank ${sonuc.grupBilgi.rank})`, inline: true },
+                        { name: '🟢 Eklenen Roller', value: eklenenTxt, inline: false },
+                        { name: '🔴 Çıkarılan Roller', value: cikarilanTxt, inline: false }
+                    )
+                    .setTimestamp();
+                return interaction.editReply({ embeds: [embed] });
+            }
+
+            if (interaction.commandName === 'sınav') {
+                if (!ayar.moduller.sinav) return interaction.reply({ content: '❌ Sınav sistemi şu an kapalı.', ephemeral: true });
+                const sorular = ayar.sinavAyar?.sorular || VARSAYILAN_SINAV_SORULARI;
+                if (!sorular.length) return interaction.reply({ content: '❌ Sınav sorusu tanımlı değil.', ephemeral: true });
+                const key = `${interaction.guildId}_${interaction.user.id}`;
+                const oturum = { index: 0, dogruSayisi: 0, sorular };
+                aktifSinavlar.set(key, oturum);
+                return interaction.reply(sinavSoruMesajiOlustur(oturum));
+            }
+
+            if (interaction.commandName === 'sicil') {
+                if (!yoneticiMi && !interaction.member.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+                    return interaction.reply({ content: '❌ Bu işlem için yetkiniz yok.', ephemeral: true });
+                }
+                const alt = interaction.options.getSubcommand();
+                const hedef = interaction.options.getUser('uye');
+                if (!ayar.sicilKayitlari[hedef.id]) ayar.sicilKayitlari[hedef.id] = { madalyalar: [], disiplin: [] };
+                const tarih = new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });
+
+                if (alt === 'madalya-ver') {
+                    const madalya = interaction.options.getString('madalya');
+                    const aciklama = interaction.options.getString('aciklama') || 'Üstün başarı';
+                    ayar.sicilKayitlari[hedef.id].madalyalar.unshift({ id: crypto.randomUUID(), ad: madalya, aciklama, yetkili: interaction.user.tag, tarih });
+                    logEkle(interaction.guildId, 'SICIL', 'Madalya Verildi', `${hedef.tag}: ${madalya}`, interaction.user.tag);
+                    return interaction.reply({ embeds: [new EmbedBuilder().setColor('#f59e0b').setTitle('🏅 Madalya / Bröve Taltifi').setDescription(`**${hedef}** personeline **${madalya}** verildi!\n📝 ${aciklama}`)] });
+                }
+                if (alt === 'disiplin-ekle') {
+                    const tur = interaction.options.getString('tur');
+                    const sebep = interaction.options.getString('sebep');
+                    ayar.sicilKayitlari[hedef.id].disiplin.unshift({ id: crypto.randomUUID(), tur, sebep, yetkili: interaction.user.tag, tarih });
+                    logEkle(interaction.guildId, 'SICIL', 'Disiplin Cezası İşlendi', `${hedef.tag}: [${tur}] ${sebep}`, interaction.user.tag);
+                    return interaction.reply({ embeds: [new EmbedBuilder().setColor('#ef4444').setTitle('⚖️ İnzibat / Disiplin Sicil Kaydı').setDescription(`**${hedef}** siciline **${tur}** işlendi.\n📝 Sebep: ${sebep}`)] });
+                }
+            }
+
+            if (interaction.commandName === 'karaliste') {
+                if (!yoneticiMi) return interaction.reply({ content: '❌ Yetkiniz yok.', ephemeral: true });
+                const alt = interaction.options.getSubcommand();
+                if (alt === 'liste') {
+                    const metin = (ayar.karaListe || []).slice(0, 20).map((k, i) => `**${i + 1}.** Discord: \`${k.discordId || '-'}\` | Roblox: **${k.robloxUsername || '-'}** — ${k.sebep}`).join('\n') || 'Kara liste boş.';
+                    return interaction.reply({ embeds: [new EmbedBuilder().setColor('#dc2626').setTitle('⛔ Ortak Kara Liste').setDescription(metin)], ephemeral: true });
+                }
+                if (alt === 'ekle') {
+                    await interaction.deferReply();
+                    const dUser = interaction.options.getUser('discord_uye');
+                    const rAdi = interaction.options.getString('roblox_adi');
+                    const sebep = interaction.options.getString('sebep');
+                    let rUser = null;
+                    if (rAdi) rUser = await robloxKullaniciBul(rAdi).catch(() => null);
+                    ayar.karaListe.unshift({
+                        id: crypto.randomUUID(),
+                        discordId: dUser?.id || '',
+                        robloxId: rUser?.id || '',
+                        robloxUsername: rUser?.username || rAdi || '',
+                        sebep,
+                        yetkili: interaction.user.tag,
+                        tarih: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
+                    });
+                    logEkle(interaction.guildId, 'MODERASYON', 'Kara Listeye Eklendi', `${dUser?.tag || ''} ${rUser?.username || ''} — ${sebep}`, interaction.user.tag);
+                    return interaction.editReply(`⛔ Kayıt ortak kara listeye eklendi! Sebep: **${sebep}**`);
+                }
+            }
+
+            if (interaction.commandName === 'çekiliş') {
+                if (!yoneticiMi && !interaction.member.permissions.has(PermissionsBitField.Flags.ManageEvents)) {
+                    return interaction.reply({ content: '❌ Çekiliş yönetme yetkiniz yok.', ephemeral: true });
+                }
+                const alt = interaction.options.getSubcommand();
+                if (alt === 'baslat') {
+                    const odul = interaction.options.getString('odul');
+                    const sureDk = interaction.options.getInteger('sure_dakika');
+                    const kazananSayisi = interaction.options.getInteger('kazanan_sayisi') || 1;
+                    const sartRol = interaction.options.getRole('sart_rol');
+                    const sartSeviye = interaction.options.getInteger('sart_seviye') || 0;
+                    const bitisTimestamp = Date.now() + sureDk * 60 * 1000;
+                    const id = crypto.randomUUID().slice(0, 8);
+
+                    const sartlar = [];
+                    if (sartRol) sartlar.push(`• Gerekli Rol: <@&${sartRol.id}>`);
+                    if (sartSeviye > 0) sartlar.push(`• Minimum Seviye: **Seviye ${sartSeviye}**`);
+
+                    const embed = new EmbedBuilder()
+                        .setColor('#f59e0b')
+                        .setTitle(`🎉 ÇEKİLİŞ: ${odul}`)
+                        .setDescription(`Katılmak için aşağıdaki butona tıklayın!\n\n⏰ **Bitiş:** <t:${Math.floor(bitisTimestamp / 1000)}:R>\n🏆 **Kazanan Sayısı:** ${kazananSayisi}\n👥 **Katılımcı:** 0 kişi\n${sartlar.length ? '\n**Katılım Şartları:**\n' + sartlar.join('\n') : ''}`)
+                        .setFooter({ text: `Çekiliş ID: ${id} • Başlatan: ${interaction.user.tag}` })
+                        .setTimestamp(bitisTimestamp);
+
+                    const row = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setCustomId(`cekilis_katil_${id}`).setLabel('🎉 Çekilişe Katıl (0)').setStyle(ButtonStyle.Success)
+                    );
+
+                    const msg = await interaction.channel.send({ embeds: [embed], components: [row] });
+                    ayar.cekilisler.unshift({
+                        id, kanalId: interaction.channelId, mesajId: msg.id, odul, kazananSayisi,
+                        bitisTimestamp, olusturan: interaction.user.tag, bitti: false,
+                        katilanlar: [], kazananlar: [], sartRolId: sartRol?.id || '', sartMinSeviye: sartSeviye, sartMinNobetDk: 0
+                    });
+                    logEkle(interaction.guildId, 'CEKILIS', 'Çekiliş Başlatıldı', `${odul} (${sureDk} dk)`, interaction.user.tag);
+                    return interaction.reply({ content: `✅ Çekiliş başlatıldı! ID: \`${id}\``, ephemeral: true });
+                }
+                if (alt === 'bitir' || alt === 'yeniden-cek') {
+                    const id = interaction.options.getString('id');
+                    const c = (ayar.cekilisler || []).find(x => x.id === id);
+                    if (!c) return interaction.reply({ content: '❌ Çekiliş ID bulunamadı.', ephemeral: true });
+                    await cekilisSonlandir(interaction.guild, ayar, c, alt === 'yeniden-cek');
+                    return interaction.reply({ content: '✅ İşlem tamamlandı.', ephemeral: true });
+                }
+            }
+
+            if (interaction.commandName === 'anons') {
+                if (!yoneticiMi) return interaction.reply({ content: '❌ Yetkiniz yok.', ephemeral: true });
+                await interaction.deferReply({ ephemeral: true });
+                const kanal = interaction.options.getChannel('kanal');
+                const mesaj = interaction.options.getString('mesaj');
+                await sesKanalinaAnonsYap(interaction.guild, kanal.id, mesaj);
+                logEkle(interaction.guildId, 'SES', 'Canlı TTS Anons Yapıldı', `#${kanal.name}: ${mesaj.slice(0, 60)}`, interaction.user.tag);
+                return interaction.editReply(`📢 **#${kanal.name}** kanalında anons okunuyor!`);
             }
 
             if (interaction.commandName === 'kimlik') {
@@ -1058,133 +1804,83 @@ client.on('interactionCreate', async (interaction) => {
                     .setThumbnail(hedef.displayAvatarURL({ size: 256 }))
                     .addFields(
                         { name: '👤 Personel', value: `${hedef} (\`${hedef.tag}\`)`, inline: true },
-                        { name: '🎖️ Mevcut Rütbe', value: `**${analiz?.enYuksekRutbe || 'Bilinmiyor'}**`, inline: true },
+                        { name: '🎖️ En Yüksek Rütbe', value: `**${analiz?.enYuksekRutbe || 'Bilinmiyor'}**`, inline: true },
+                        { name: '🎮 Roblox Hesabı', value: analiz?.robloxUsername ? `**${analiz.robloxUsername}** ✅` : 'Doğrulanmamış', inline: true },
                         { name: '🏆 Seviye & XP', value: `Seviye **${analiz?.seviye || 1}** (${analiz?.xp || 0} XP)`, inline: true },
                         { name: '⏱️ Haftalık Nöbet', value: `**${analiz?.nobetDakika || 0} dk**`, inline: true },
-                        { name: '⚠️ Sicil Uyarı', value: `${analiz?.uyariSayisi || 0} Kayıt`, inline: true },
+                        { name: '⚠️ Uyarı', value: `${analiz?.uyariSayisi || 0} Kayıt`, inline: true },
+                        { name: '🏅 Madalya & Bröveler', value: analiz?.madalyalar?.length ? analiz.madalyalar.slice(0, 5).map(m => `🏅 ${m.ad}`).join('\n') : 'Yok', inline: true },
+                        { name: '⚖️ Disiplin Sicili', value: analiz?.disiplin?.length ? analiz.disiplin.slice(0, 5).map(d => `• [${d.tur}] ${d.sebep}`).join('\n') : 'Temiz', inline: true },
                         { name: '🎭 Roller', value: analiz?.roller?.slice(0, 12).join(', ') || 'Rol yok' }
                     );
                 return interaction.reply({ embeds: [embed] });
             }
 
-            // GELİŞMİŞ SLASH MODERASYON KOMUTLARI
             if (interaction.commandName === 'moderasyon') {
                 const alt = interaction.options.getSubcommand();
-                const yoneticiMi = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
-
                 if (alt === 'uyarilar') {
                     const hedef = interaction.options.getUser('uye');
                     const liste = (ayar.uyarilar || []).filter(u => u.kullaniciId === hedef.id);
-                    const embed = new EmbedBuilder()
-                        .setColor('#f59e0b')
-                        .setTitle(`📋 Sicil Uyarı Kayıtları — ${hedef.tag}`)
-                        .setDescription(liste.length
-                            ? liste.slice(0, 15).map((u, idx) => `**${idx + 1}.** \`${u.tarih}\` — **${u.sebep}** *(Yetkili: ${u.yetkili})*`).join('\n')
-                            : 'Bu personelin kayıtlı uyarısı bulunmuyor.');
-                    return interaction.reply({ embeds: [embed], ephemeral: true });
-                }
-
-                if (alt === 'uyar') {
-                    if (!yoneticiMi && !interaction.member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
-                        return interaction.reply({ content: '❌ Uyarı verme yetkiniz yok.', ephemeral: true });
-                    }
-                    const hedef = interaction.options.getUser('uye');
-                    const member = await interaction.guild.members.fetch(hedef.id).catch(() => null);
-                    const sebep = interaction.options.getString('sebep');
-
-                    ayar.uyarilar.unshift({
-                        id: crypto.randomUUID(),
-                        kullaniciId: hedef.id,
-                        kullaniciTag: hedef.tag,
-                        yetkili: interaction.user.tag,
-                        sebep,
-                        tarih: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
+                    return interaction.reply({
+                        embeds: [new EmbedBuilder().setColor('#f59e0b').setTitle(`📋 Sicil Uyarı Kayıtları — ${hedef.tag}`)
+                            .setDescription(liste.length ? liste.slice(0, 15).map((u, idx) => `**${idx + 1}.** \`${u.tarih}\` — **${u.sebep}** *(${u.yetkili})*`).join('\n') : 'Uyarı kaydı yok.')],
+                        ephemeral: true
                     });
-                    const toplam = ayar.uyarilar.filter(u => u.kullaniciId === hedef.id).length;
-                    const esik = Number(ayar.automod.otoCezaEsik) || 3;
-                    let otoNot = '';
-
-                    if (member && toplam >= esik) {
-                        const dk = Number(ayar.automod.otoCezaTimeoutDakika) || 15;
-                        await member.timeout(dk * 60 * 1000, `Uyarı eşiği (${toplam}/${esik})`).catch(() => {});
-                        otoNot = `\n🔇 Uyarı eşiği (${esik}) dolduğu için **${dk} dakika** susturma uygulandı.`;
-                    }
-
-                    logEkle(interaction.guildId, 'MODERASYON', 'Resmi Uyarı', `${hedef.tag}: ${sebep} (${toplam}. uyarı)`, interaction.user.tag);
-                    const embed = new EmbedBuilder()
-                        .setColor('#f59e0b')
-                        .setTitle('⚠️ Resmi Disiplin Uyarısı')
-                        .setDescription(`**Personel:** ${hedef} (\`${hedef.tag}\`)\n**Yetkili:** ${interaction.user}\n**Sebep:** ${sebep}\n**Toplam Uyarı:** ${toplam}${otoNot}`)
-                        .setTimestamp();
+                }
+                if (alt === 'uyar') {
+                    if (!yoneticiMi && !interaction.member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) return interaction.reply({ content: '❌ Yetkiniz yok.', ephemeral: true });
+                    const hedef = interaction.options.getUser('uye');
+                    const member = await interaction.guild.members.fetch(hedef.id);
+                    const sebep = interaction.options.getString('sebep');
+                    const res = await uyariEkleVeMerdivenUygula(interaction.guild, member, ayar, interaction.user.tag, sebep);
+                    logEkle(interaction.guildId, 'MODERASYON', 'Resmi Uyarı', `${hedef.tag}: ${sebep} (${res.toplam}. uyarı → ${res.uygulananCeza})`, interaction.user.tag);
+                    const embed = new EmbedBuilder().setColor('#f59e0b').setTitle('⚠️ Resmi Disiplin Uyarısı')
+                        .setDescription(`**Personel:** ${hedef}\n**Sebep:** ${sebep}\n**Toplam Uyarı:** ${res.toplam}\n**Uygulanan Aksiyon:** ${res.uygulananCeza}`).setTimestamp();
                     await modLogEmbedGonder(interaction.guild, ayar, embed);
                     return interaction.reply({ embeds: [embed] });
                 }
-
                 if (alt === 'sustur') {
-                    if (!yoneticiMi && !interaction.member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
-                        return interaction.reply({ content: '❌ Susturma yetkiniz yok.', ephemeral: true });
-                    }
+                    if (!yoneticiMi && !interaction.member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) return interaction.reply({ content: '❌ Yetkiniz yok.', ephemeral: true });
                     const hedef = interaction.options.getUser('uye');
                     const member = await interaction.guild.members.fetch(hedef.id);
                     const dakika = interaction.options.getInteger('dakika');
                     const sebep = interaction.options.getString('sebep') || 'Komuta kararı';
                     await member.timeout(dakika * 60 * 1000, sebep);
                     logEkle(interaction.guildId, 'MODERASYON', `Susturma (${dakika} dk)`, `${hedef.tag}: ${sebep}`, interaction.user.tag);
-                    const embed = new EmbedBuilder()
-                        .setColor('#ef4444')
-                        .setTitle('🔇 Süreli Susturma (Timeout)')
-                        .setDescription(`**Personel:** ${hedef}\n**Süre:** ${dakika} dakika\n**Yetkili:** ${interaction.user}\n**Sebep:** ${sebep}`)
-                        .setTimestamp();
-                    await modLogEmbedGonder(interaction.guild, ayar, embed);
-                    return interaction.reply({ embeds: [embed] });
+                    return interaction.reply(`🔇 **${hedef.tag}** ${dakika} dakika susturuldu. Sebep: ${sebep}`);
                 }
-
                 if (alt === 'at') {
-                    if (!yoneticiMi && !interaction.member.permissions.has(PermissionsBitField.Flags.KickMembers)) {
-                        return interaction.reply({ content: '❌ Sunucudan atma yetkiniz yok.', ephemeral: true });
-                    }
+                    if (!yoneticiMi && !interaction.member.permissions.has(PermissionsBitField.Flags.KickMembers)) return interaction.reply({ content: '❌ Yetkiniz yok.', ephemeral: true });
                     const hedef = interaction.options.getUser('uye');
                     const member = await interaction.guild.members.fetch(hedef.id);
                     const sebep = interaction.options.getString('sebep') || 'Disiplin kararı';
                     await member.kick(sebep);
-                    logEkle(interaction.guildId, 'MODERASYON', 'Sunucudan Atıldı (Kick)', `${hedef.tag}: ${sebep}`, interaction.user.tag);
-                    return interaction.reply({ embeds: [new EmbedBuilder().setColor('#ef4444').setTitle('👢 Personel Sunucudan Atıldı').setDescription(`**Kullanıcı:** ${hedef.tag}\n**Sebep:** ${sebep}`)] });
+                    logEkle(interaction.guildId, 'MODERASYON', 'Kick', `${hedef.tag}: ${sebep}`, interaction.user.tag);
+                    return interaction.reply(`👢 **${hedef.tag}** sunucudan atıldı.`);
                 }
-
                 if (alt === 'yasakla') {
-                    if (!yoneticiMi && !interaction.member.permissions.has(PermissionsBitField.Flags.BanMembers)) {
-                        return interaction.reply({ content: '❌ Yasaklama yetkiniz yok.', ephemeral: true });
-                    }
+                    if (!yoneticiMi && !interaction.member.permissions.has(PermissionsBitField.Flags.BanMembers)) return interaction.reply({ content: '❌ Yetkiniz yok.', ephemeral: true });
                     const hedef = interaction.options.getUser('uye');
                     const sebep = interaction.options.getString('sebep') || 'Komuta kararı';
                     await interaction.guild.members.ban(hedef.id, { reason: sebep });
-                    logEkle(interaction.guildId, 'MODERASYON', 'Yasaklandı (Ban)', `${hedef.tag}: ${sebep}`, interaction.user.tag);
-                    return interaction.reply({ embeds: [new EmbedBuilder().setColor('#dc2626').setTitle('🔨 Sunucudan Kalıcı Yasaklandı').setDescription(`**Kullanıcı:** ${hedef.tag}\n**Sebep:** ${sebep}`)] });
+                    logEkle(interaction.guildId, 'MODERASYON', 'Ban', `${hedef.tag}: ${sebep}`, interaction.user.tag);
+                    return interaction.reply(`🔨 **${hedef.tag}** yasaklandı.`);
                 }
-
                 if (alt === 'temizle') {
-                    if (!yoneticiMi && !interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
-                        return interaction.reply({ content: '❌ Mesaj silme yetkiniz yok.', ephemeral: true });
-                    }
-                    const adet = interaction.options.getInteger('adet');
-                    const silinen = await interaction.channel.bulkDelete(adet, true);
-                    logEkle(interaction.guildId, 'MODERASYON', 'Toplu Mesaj Silindi', `#${interaction.channel.name} (${silinen.size} mesaj)`, interaction.user.tag);
-                    return interaction.reply({ content: `🧹 **${silinen.size}** adet mesaj temizlendi.`, ephemeral: true });
+                    if (!yoneticiMi && !interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) return interaction.reply({ content: '❌ Yetkiniz yok.', ephemeral: true });
+                    const silinen = await interaction.channel.bulkDelete(interaction.options.getInteger('adet'), true);
+                    return interaction.reply({ content: `🧹 **${silinen.size}** mesaj silindi.`, ephemeral: true });
                 }
-
                 if (alt === 'kilit') {
-                    if (!yoneticiMi && !interaction.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) {
-                        return interaction.reply({ content: '❌ Kanal yönetme yetkiniz yok.', ephemeral: true });
-                    }
+                    if (!yoneticiMi && !interaction.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) return interaction.reply({ content: '❌ Yetkiniz yok.', ephemeral: true });
                     const durum = interaction.options.getBoolean('durum');
                     await interaction.channel.permissionOverwrites.edit(interaction.guild.id, { SendMessages: durum ? false : null });
-                    logEkle(interaction.guildId, 'MODERASYON', durum ? 'Kanal Kilitlendi' : 'Kanal Kilidi Açıldı', `#${interaction.channel.name}`, interaction.user.tag);
-                    return interaction.reply(durum ? '🔒 Kanal mesaj gönderimine kilitlendi.' : '🔓 Kanal kilidi kaldırıldı.');
+                    return interaction.reply(durum ? '🔒 Kanal kilitlendi.' : '🔓 Kanal kilidi açıldı.');
                 }
             }
 
             if (interaction.commandName === 'ses-odasi') {
-                if (!ayar.moduller.sesOdasi) return interaction.reply({ content: '❌ Özel ses odası modülü kapalı.', ephemeral: true });
+                if (!ayar.moduller.sesOdasi) return interaction.reply({ content: '❌ Kapalı.', ephemeral: true });
                 const isim = interaction.options.getString('isim');
                 const limit = interaction.options.getInteger('limit') || 0;
                 const ozel = interaction.options.getBoolean('ozel') || false;
@@ -1206,90 +1902,70 @@ client.on('interactionCreate', async (interaction) => {
                     userLimit: limit,
                     permissionOverwrites
                 });
-
                 ayar.ozelSesOdalari[oda.id] = { sahipId: interaction.user.id, otomatikSil: true, olusturma: Date.now() };
-                logEkle(interaction.guildId, 'SES', 'Özel Ses Odası Oluşturuldu', `${oda.name} (Limit: ${limit || 'Sınırsız'})`, interaction.user.tag);
-                return interaction.reply({ content: `✅ Ses odanız oluşturuldu: <#${oda.id}> (Boşaldığında otomatik silinecektir.)`, ephemeral: true });
+                logEkle(interaction.guildId, 'SES', 'Ses Odası Oluşturuldu', oda.name, interaction.user.tag);
+                return interaction.reply({ content: `✅ Oda oluşturuldu: <#${oda.id}>`, ephemeral: true });
             }
 
             if (interaction.commandName === 'izin') {
-                if (!ayar.moduller.loa) return interaction.reply({ content: '❌ İzin/Mazeret modülü kapalı.', ephemeral: true });
                 const gun = interaction.options.getInteger('gun');
                 const sebep = interaction.options.getString('sebep');
                 ayar.loaTalepleri.unshift({
-                    id: crypto.randomUUID(),
-                    userId: interaction.user.id,
-                    username: interaction.user.tag,
-                    gun,
-                    sebep,
-                    durum: 'beklemede',
-                    tarih: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }),
-                    bitisTimestamp: null,
-                    yetkili: ''
+                    id: crypto.randomUUID(), userId: interaction.user.id, username: interaction.user.tag,
+                    gun, sebep, durum: 'beklemede', tarih: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }), bitisTimestamp: null, yetkili: ''
                 });
-                logEkle(interaction.guildId, 'LOA', 'İzin Talebi Oluşturuldu', `${gun} gün — ${sebep}`, interaction.user.tag);
+                logEkle(interaction.guildId, 'LOA', 'İzin Talebi', `${gun} gün — ${sebep}`, interaction.user.tag);
                 return interaction.reply({ content: `✅ **${gun} günlük** izin talebiniz komuta merkezine iletildi.`, ephemeral: true });
             }
 
             if (interaction.commandName === 'rütbe') {
-                if (!ayar.moduller.rutbe) return interaction.reply({ content: '❌ Rütbe modülü kapalı.', ephemeral: true });
                 await interaction.deferReply();
                 const alt = interaction.options.getSubcommand();
                 const groupId = ayar.robloxGrupId || DEFAULT_ROBLOX_GROUP_ID;
 
                 if (alt === 'liste') {
-                    const metin = (ayar.tsfRutbeler || VARSAYILAN_TSF_RUTBELER)
-                        .map((r, i) => `\`${i + 1}.\` **${r.ad}** — *${r.sinif}*`)
-                        .join('\n');
                     return interaction.editReply({
-                        embeds: [new EmbedBuilder().setColor('#f59e0b').setTitle('🎖️ Güncel TSF Rütbe Hiyerarşisi').setDescription(metin.slice(0, 4000))]
+                        embeds: [new EmbedBuilder().setColor('#f59e0b').setTitle('🎖️ Güncel TSF Rütbe Hiyerarşisi').setDescription(tamRutbeListesiMetni(ayar).slice(0, 4000))]
                     });
                 }
-
                 if (alt === 'sorgula') {
                     const rUser = await robloxKullaniciBul(interaction.options.getString('kullanici'));
                     const bilgi = await robloxKullaniciGrupBilgisi(groupId, rUser.id);
                     return interaction.editReply({
-                        embeds: [new EmbedBuilder()
-                            .setColor('#3b82f6')
-                            .setTitle(`🔍 TSF Personel Sorgu — ${rUser.username}`)
-                            .setThumbnail(rUser.avatarUrl)
-                            .addFields(
-                                { name: 'Roblox ID', value: `\`${rUser.id}\``, inline: true },
-                                { name: 'Mevcut Grup Rütbesi', value: bilgi ? `**${bilgi.roleName}** (Rank ${bilgi.rank})` : '❌ Üye Değil', inline: true }
-                            )]
+                        embeds: [new EmbedBuilder().setColor('#3b82f6').setTitle(`🔍 TSF Personel Sorgu — ${rUser.username}`).setThumbnail(rUser.avatarUrl)
+                            .addFields({ name: 'Roblox ID', value: `\`${rUser.id}\``, inline: true }, { name: 'Rütbe', value: bilgi ? `**${bilgi.roleName}** (Rank ${bilgi.rank})` : '❌ Üye Değil', inline: true })]
                     });
                 }
 
-                const yoneticiMi = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) || interaction.member.permissions.has(PermissionsBitField.Flags.ManageRoles);
                 const yetkiliRolVarMi = ayar.rutbeYetkiliRol && interaction.member.roles.cache.has(ayar.rutbeYetkiliRol);
-                if (!yoneticiMi && !yetkiliRolVarMi) return interaction.editReply('❌ Rütbe verme yetkiniz yok.');
+                if (!yoneticiMi && !yetkiliRolVarMi && !interaction.member.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+                    return interaction.editReply('❌ Rütbe verme yetkiniz yok.');
+                }
 
                 if (alt === 'ver') {
                     const kAdi = interaction.options.getString('kullanici');
                     const hedefRolId = interaction.options.getString('rutbe');
-                    const dUser = interaction.options.getUser('discord_uye');
                     const sebep = interaction.options.getString('sebep') || 'Komuta kararı ile terfi';
-                    const dMember = dUser ? await interaction.guild.members.fetch(dUser.id).catch(() => null) : null;
 
                     const sonuc = await tamRutbeIslemiYap({
                         guild: interaction.guild,
                         robloxKullaniciAdi: kAdi,
                         hedefRolId,
-                        hedefDiscordMember: dMember,
+                        yetkiliMember: interaction.member,
+                        yetkiliUserId: interaction.user.id,
                         yetkiliEtiket: interaction.user.tag
                     });
 
                     return interaction.editReply({
                         embeds: [new EmbedBuilder()
                             .setColor('#10b981')
-                            .setTitle('🎖️ TSF Rütbe Ataması Başarılı')
+                            .setTitle('🎖️ TSF Roblox Rütbe Ataması Başarılı')
                             .setThumbnail(sonuc.robloxUser.avatarUrl)
                             .addFields(
-                                { name: '👤 Personel', value: `**${sonuc.robloxUser.username}**`, inline: true },
+                                { name: '👤 Personel (Roblox)', value: `**${sonuc.robloxUser.username}**`, inline: true },
                                 { name: '👮 Komutan', value: `${interaction.user}`, inline: true },
                                 { name: '📉 Eski → 📈 Yeni', value: `\`${sonuc.eskiRolAdi}\` → **${sonuc.yeniRol.name}**` },
-                                { name: '🎭 Discord Rol', value: sonuc.discordDurum },
+                                { name: '🔄 Discord Rol Güncelleme', value: 'Personelin Discord rollerini güncellemesi için **`/update`** yazması yeterlidir.' },
                                 { name: '📝 Sebep', value: sebep }
                             )]
                     });
@@ -1297,7 +1973,7 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 3. TICKET AÇILIR MENÜSÜ
+        // 3. TICKET AÇILIR MENÜSÜ (.PNG DESTEKLİ)
         if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_kategori_sec') {
             const ayar = sunucuAyarGetir(interaction.guildId);
             if (!ayar.moduller.ticket) return interaction.reply({ content: '❌ Ticket sistemi kapalı.', ephemeral: true });
@@ -1309,11 +1985,11 @@ client.on('interactionCreate', async (interaction) => {
 
             const izinler = [
                 { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles, PermissionsBitField.Flags.ReadMessageHistory] },
-                { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels] }
+                { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles, PermissionsBitField.Flags.EmbedLinks, PermissionsBitField.Flags.ReadMessageHistory] },
+                { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles, PermissionsBitField.Flags.ManageChannels] }
             ];
             if (ayar.ticketYetkiliRol) {
-                izinler.push({ id: ayar.ticketYetkiliRol, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles, PermissionsBitField.Flags.ReadMessageHistory] });
+                izinler.push({ id: ayar.ticketYetkiliRol, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles, PermissionsBitField.Flags.EmbedLinks, PermissionsBitField.Flags.ReadMessageHistory] });
             }
 
             const biletKanal = await interaction.guild.channels.create({
@@ -1325,14 +2001,9 @@ client.on('interactionCreate', async (interaction) => {
             });
 
             ayar.acikBiletler[biletKanal.id] = {
-                id: crypto.randomUUID(),
-                kanalId: biletKanal.id,
-                kanalAdi: biletKanal.name,
-                sahipId: interaction.user.id,
-                sahipTag: interaction.user.tag,
-                konu: konuObj.isim,
-                ustlenenId: '',
-                ustlenenTag: 'Atanmadı',
+                id: crypto.randomUUID(), kanalId: biletKanal.id, kanalAdi: biletKanal.name,
+                sahipId: interaction.user.id, sahipTag: interaction.user.tag, konu: konuObj.isim,
+                ustlenenId: '', ustlenenTag: 'Atanmadı',
                 acilisTarihi: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
             };
             dbKaydet();
@@ -1340,11 +2011,10 @@ client.on('interactionCreate', async (interaction) => {
             const embed = new EmbedBuilder()
                 .setColor(ayar.ticketPanelRenk || '#3b82f6')
                 .setTitle(`${konuObj.emoji || '🎫'} ${konuObj.isim}`)
-                .setDescription(`Merhaba ${interaction.user}, destek talebiniz oluşturuldu.\n\n• **Kategori:** ${konuObj.isim}\n• **Açıklama:** ${konuObj.aciklama || 'Talebinizi detaylıca yazınız.'}`)
+                .setDescription(`Merhaba ${interaction.user}, destek talebiniz oluşturuldu.\n\n• **Kategori:** ${konuObj.isim}\n• **Açıklama:** ${konuObj.aciklama || 'Talebinizi yazıp dilerseniz .png/.jpg ekran görüntüsü ekleyebilirsiniz.'}`)
                 .setTimestamp();
-            const gorsel = (konuObj.gorselUrl || ayar.ticketPanelGorselUrl || '').trim();
-            if (gorsel.startsWith('http')) embed.setImage(gorsel);
 
+            const files = gorselEmbedVeEkHazirla(embed, konuObj.gorselUrl || ayar.ticketPanelGorselUrl);
             const butonlar = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('ticket_ustlen').setLabel('🙋 Talebi Üstlen').setStyle(ButtonStyle.Primary),
                 new ButtonBuilder().setCustomId('ticket_ai_ozet').setLabel('🤖 AI Özet').setStyle(ButtonStyle.Secondary),
@@ -1352,44 +2022,111 @@ client.on('interactionCreate', async (interaction) => {
             );
 
             const etiket = ayar.ticketYetkiliRol ? `${interaction.user} | <@&${ayar.ticketYetkiliRol}>` : `${interaction.user}`;
-            await biletKanal.send({ content: etiket, embeds: [embed], components: [butonlar] });
+            await biletKanal.send({ content: etiket, embeds: [embed], components: [butonlar], files });
             logEkle(interaction.guildId, 'TICKET', 'Bilet Açıldı', `#${biletKanal.name} (${konuObj.isim})`, interaction.user.tag);
             return interaction.editReply(`✅ Destek biletiniz açıldı: ${biletKanal}`);
         }
 
-        // 4. BUTONLAR (SES ODASI PANELİ, TICKET, DEĞERLENDİRME, OPERASYON, YOKLAMA)
+        // 4. BUTONLAR
         if (interaction.isButton()) {
             const cid = interaction.customId;
 
-            // METİN KANALINDAKİ "ÖZEL SES ODASI OLUŞTUR" PANEL BUTONU
+            // SINAV CEVAP BUTONU
+            if (cid.startsWith('sinav_cevap_')) {
+                const secilen = Number(cid.split('_')[2]);
+                const key = `${interaction.guildId}_${interaction.user.id}`;
+                const oturum = aktifSinavlar.get(key);
+                if (!oturum) return interaction.reply({ content: '❌ Aktif sınav oturumunuz bulunamadı.', ephemeral: true });
+
+                if (oturum.sorular[oturum.index].dogru === secilen) oturum.dogruSayisi += 1;
+                oturum.index += 1;
+
+                if (oturum.index < oturum.sorular.length) {
+                    return interaction.update(sinavSoruMesajiOlustur(oturum));
+                }
+
+                aktifSinavlar.delete(key);
+                const ayar = sunucuAyarGetir(interaction.guildId);
+                const yuzde = Math.round((oturum.dogruSayisi / oturum.sorular.length) * 100);
+                const baraj = Number(ayar.sinavAyar?.gecmeYuzdesi) || 80;
+                const gecti = yuzde >= baraj;
+
+                let terfiNot = '';
+                if (gecti) {
+                    const dogr = ayar.dogrulamalar?.[interaction.user.id];
+                    if (dogr?.robloxUsername) {
+                        try {
+                            const hedefAd = ayar.sinavAyar?.terfiHedefRutbe || '[Or-2] Onbaşı';
+                            await tamRutbeIslemiYap({
+                                guild: interaction.guild,
+                                robloxKullaniciAdi: dogr.robloxUsername,
+                                hedefRolId: hedefAd,
+                                yetkiliMember: null,
+                                yetkiliUserId: SUPER_ADMIN_ID,
+                                yetkiliEtiket: 'Otomatik Sınav Sistemi'
+                            });
+                            terfiNot = `\n🎖️ Tebrikler! Roblox grubunda **${hedefAd}** rütbesine terfi ettiniz! Discord rolünüzü almak için \`/update\` yazın.`;
+                        } catch (e) {
+                            terfiNot = `\nℹ️ Sınavı geçtiniz ancak otomatik Roblox terfisi yapılamadı: ${e.message}`;
+                        }
+                    } else {
+                        terfiNot = '\nℹ️ Otomatik terfi için önce `/doğrula baslat` ile Roblox hesabınızı bağlayın.';
+                    }
+                }
+
+                return interaction.update({
+                    embeds: [new EmbedBuilder()
+                        .setColor(gecti ? '#10b981' : '#ef4444')
+                        .setTitle(gecti ? '✅ SINAVI BAŞARIYLA GEÇTİNİZ!' : '❌ SINAVDA BAŞARISIZ OLDUNUZ')
+                        .setDescription(`**Doğru:** ${oturum.dogruSayisi} / ${oturum.sorular.length} (**%${yuzde}**)\n**Geçme Barajı:** %${baraj}${terfiNot}`)],
+                    components: []
+                });
+            }
+
+            // ÇEKİLİŞ KATILIM BUTONU
+            if (cid.startsWith('cekilis_katil_')) {
+                const cekId = cid.replace('cekilis_katil_', '');
+                const ayar = sunucuAyarGetir(interaction.guildId);
+                const c = (ayar.cekilisler || []).find(x => x.id === cekId);
+                if (!c || c.bitti) return interaction.reply({ content: '❌ Bu çekiliş sona erdi.', ephemeral: true });
+
+                if (c.sartRolId && !interaction.member.roles.cache.has(c.sartRolId)) {
+                    return interaction.reply({ content: `❌ Bu çekilişe katılmak için <@&${c.sartRolId}> rolüne sahip olmalısınız!`, ephemeral: true });
+                }
+                const xp = ayar.leveling?.kullanicilar?.[interaction.user.id]?.seviye || 1;
+                if (c.sartMinSeviye > 0 && xp < c.sartMinSeviye) {
+                    return interaction.reply({ content: `❌ Bu çekiliş için en az **Seviye ${c.sartMinSeviye}** olmalısınız! (Mevcut: ${xp})`, ephemeral: true });
+                }
+                const nobetDk = Math.round((ayar.nobetSureleri?.[interaction.user.id]?.toplamSaniye || 0) / 60);
+                if (c.sartMinNobetDk > 0 && nobetDk < c.sartMinNobetDk) {
+                    return interaction.reply({ content: `❌ Bu çekiliş için en az **${c.sartMinNobetDk} dk** ses nöbetiniz olmalı!`, ephemeral: true });
+                }
+
+                if (c.katilanlar.includes(interaction.user.id)) {
+                    c.katilanlar = c.katilanlar.filter(x => x !== interaction.user.id);
+                    dbKaydet();
+                    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(cid).setLabel(`🎉 Çekilişe Katıl (${c.katilanlar.length})`).setStyle(ButtonStyle.Success));
+                    await interaction.message.edit({ components: [row] }).catch(() => {});
+                    return interaction.reply({ content: 'ℹ️ Çekilişten ayrıldınız.', ephemeral: true });
+                }
+
+                c.katilanlar.push(interaction.user.id);
+                dbKaydet();
+                const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(cid).setLabel(`🎉 Çekilişe Katıl (${c.katilanlar.length})`).setStyle(ButtonStyle.Success));
+                await interaction.message.edit({ components: [row] }).catch(() => {});
+                return interaction.reply({ content: '🎉 Çekilişe başarıyla katıldınız! Bol şans!', ephemeral: true });
+            }
+
             if (cid === 'ses_panel_acik_olustur' || cid === 'ses_panel_ozel_olustur') {
                 const ayar = sunucuAyarGetir(interaction.guildId);
-                if (!ayar.moduller.sesOdasi) return interaction.reply({ content: '❌ Özel ses odası sistemi şu an kapalı.', ephemeral: true });
+                if (!ayar.moduller.sesOdasi) return interaction.reply({ content: '❌ Özel ses odası sistemi kapalı.', ephemeral: true });
                 const ozelMi = cid === 'ses_panel_ozel_olustur';
                 const modal = new ModalBuilder()
                     .setCustomId(`sesmodal_${ozelMi ? 'ozel' : 'acik'}`)
-                    .setTitle(ozelMi ? '🔒 Özel / Kilitli Ses Odası Oluştur' : '🔊 Herkese Açık Ses Odası Oluştur');
-
-                const isimInp = new TextInputBuilder()
-                    .setCustomId('oda_isim')
-                    .setLabel('Ses Odası İsmi')
-                    .setPlaceholder('Örn: Tim-1 Operasyon Odası')
-                    .setStyle(TextInputStyle.Short)
-                    .setRequired(true)
-                    .setMaxLength(40);
-
-                const limitInp = new TextInputBuilder()
-                    .setCustomId('oda_limit')
-                    .setLabel('Kişi Limiti (0 = Sınırsız, 1-99 arası)')
-                    .setPlaceholder('0')
-                    .setValue('0')
-                    .setStyle(TextInputStyle.Short)
-                    .setRequired(false)
-                    .setMaxLength(2);
-
+                    .setTitle(ozelMi ? '🔒 Özel / Kilitli Ses Odası' : '🔊 Herkese Açık Ses Odası');
                 modal.addComponents(
-                    new ActionRowBuilder().addComponents(isimInp),
-                    new ActionRowBuilder().addComponents(limitInp)
+                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('oda_isim').setLabel('Ses Odası İsmi').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(40)),
+                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('oda_limit').setLabel('Kişi Limiti (0=Sınırsız, 1-99)').setValue('0').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(2))
                 );
                 return interaction.showModal(modal);
             }
@@ -1401,19 +2138,19 @@ client.on('interactionCreate', async (interaction) => {
                     ayar.acikBiletler[interaction.channelId].ustlenenTag = interaction.user.tag;
                     dbKaydet();
                 }
-                return interaction.reply({ embeds: [new EmbedBuilder().setColor('#10b981').setDescription(`🙋 Bu destek talebi **${interaction.user}** tarafından üstlenildi.`)] });
+                return interaction.reply({ embeds: [new EmbedBuilder().setColor('#10b981').setDescription(`🙋 Bu bilet **${interaction.user}** tarafından üstlenildi.`)] });
             }
 
             if (cid === 'ticket_ai_ozet') {
                 await interaction.deferReply();
                 const mesajlar = await interaction.channel.messages.fetch({ limit: 30 });
                 const dokum = Array.from(mesajlar.values()).reverse().filter(m => m.content).map(m => `${m.author.username}: ${m.content}`).join('\n');
-                const ozet = await geminiSor('Destek konuşmasını 3-4 maddede kısa ve net özetle.', dokum || 'Mesaj yok.');
+                const ozet = await geminiSor('Destek konuşmasını 3-4 maddede özetle.', dokum || 'Mesaj yok.');
                 return interaction.editReply({ embeds: [new EmbedBuilder().setColor('#8b5cf6').setTitle('🤖 AI Bilet Özeti').setDescription(ozet)] });
             }
 
             if (cid === 'ticket_kapat') {
-                await interaction.reply('🔒 Bilet kapatılıyor, sohbet arşivleniyor ve değerlendirme formu gönderiliyor...');
+                await interaction.reply('🔒 Bilet kapatılıyor, sohbet arşivleniyor ve değerlendirme gönderiliyor...');
                 const ayar = sunucuAyarGetir(interaction.guildId);
                 const acikBilgi = ayar.acikBiletler[interaction.channelId] || {};
                 const mesajlar = await interaction.channel.messages.fetch({ limit: 100 });
@@ -1427,39 +2164,24 @@ client.on('interactionCreate', async (interaction) => {
                 const ticketId = acikBilgi.id || crypto.randomUUID();
                 const sahipId = acikBilgi.sahipId || (interaction.channel.topic?.match(/\((\d{17,20})\)/)?.[1] || '');
                 const ustlenenTag = acikBilgi.ustlenenTag && acikBilgi.ustlenenTag !== 'Atanmadı' ? acikBilgi.ustlenenTag : interaction.user.tag;
-                const ustlenenId = acikBilgi.ustlenenId || interaction.user.id;
 
                 ayar.kapatilanBiletler.unshift({
-                    id: ticketId,
-                    kanalAdi: interaction.channel.name,
-                    sahipId,
-                    sahipTag: acikBilgi.sahipTag || 'Bilinmiyor',
-                    konu: acikBilgi.konu || interaction.channel.topic || 'Destek Talebi',
-                    ustlenenId,
-                    ustlenenTag,
-                    kapatan: interaction.user.tag,
-                    kapanisTarihi: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }),
-                    mesajSayisi: sirali.length,
-                    mesajlar: sirali,
-                    puan: null,
-                    yorum: ''
+                    id: ticketId, kanalAdi: interaction.channel.name, sahipId,
+                    sahipTag: acikBilgi.sahipTag || 'Bilinmiyor', konu: acikBilgi.konu || 'Destek Talebi',
+                    ustlenenId: acikBilgi.ustlenenId || interaction.user.id, ustlenenTag,
+                    kapatan: interaction.user.tag, kapanisTarihi: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }),
+                    mesajSayisi: sirali.length, mesajlar: sirali, puan: null, yorum: ''
                 });
                 delete ayar.acikBiletler[interaction.channelId];
-                if (ayar.kapatilanBiletler.length > 150) ayar.kapatilanBiletler.length = 150;
-                logEkle(interaction.guildId, 'TICKET', 'Bilet Kapatıldı', `#${interaction.channel.name} (Yetkili: ${ustlenenTag})`, interaction.user.tag);
+                logEkle(interaction.guildId, 'TICKET', 'Bilet Kapatıldı', `#${interaction.channel.name}`, interaction.user.tag);
 
                 if (sahipId) {
                     const sahipUser = await client.users.fetch(sahipId).catch(() => null);
                     if (sahipUser) {
-                        const rateEmbed = new EmbedBuilder()
-                            .setColor('#f59e0b')
-                            .setTitle('⭐ Destek Bileti Değerlendirmesi')
-                            .setDescription(`**#${interaction.channel.name}** destek biletiniz kapatıldı.\nİlgilenen Yetkili: **${ustlenenTag}**\n\nLütfen 1–5 yıldız arasında puan verin ve isterseniz yorum bırakın:`);
+                        const rateEmbed = new EmbedBuilder().setColor('#f59e0b').setTitle('⭐ Destek Bileti Değerlendirmesi')
+                            .setDescription(`**#${interaction.channel.name}** biletiniz kapatıldı.\nYetkili: **${ustlenenTag}**`);
                         const yildizRow = new ActionRowBuilder().addComponents(
-                            [1, 2, 3, 4, 5].map(n => new ButtonBuilder()
-                                .setCustomId(`trate_${interaction.guildId}_${ticketId}_${n}`)
-                                .setLabel(`${'⭐'.repeat(n)} (${n})`)
-                                .setStyle(n >= 4 ? ButtonStyle.Success : (n === 3 ? ButtonStyle.Primary : ButtonStyle.Danger)))
+                            [1, 2, 3, 4, 5].map(n => new ButtonBuilder().setCustomId(`trate_${interaction.guildId}_${ticketId}_${n}`).setLabel(`${'⭐'.repeat(n)} (${n})`).setStyle(n >= 4 ? ButtonStyle.Success : (n === 3 ? ButtonStyle.Primary : ButtonStyle.Danger)))
                         );
                         const yorumRow = new ActionRowBuilder().addComponents(
                             new ButtonBuilder().setCustomId(`tcomm_${interaction.guildId}_${ticketId}`).setLabel('📝 Yetkili Hakkında Yorum Yaz').setStyle(ButtonStyle.Secondary)
@@ -1467,35 +2189,24 @@ client.on('interactionCreate', async (interaction) => {
                         await sahipUser.send({ embeds: [rateEmbed], components: [yildizRow, yorumRow] }).catch(() => {});
                     }
                 }
-
                 setTimeout(() => interaction.channel.delete().catch(() => {}), 3500);
                 return;
             }
 
             if (cid.startsWith('trate_')) {
                 const [, gId, tId, puanStr] = cid.split('_');
-                const puan = Number(puanStr);
                 const ayar = sunucuAyarGetir(gId);
                 const bilet = ayar.kapatilanBiletler.find(b => b.id === tId);
-                if (!bilet) return interaction.reply({ content: '❌ Bilet kaydı bulunamadı.', ephemeral: true });
-                bilet.puan = puan;
+                if (!bilet) return interaction.reply({ content: '❌ Bilet bulunamadı.', ephemeral: true });
+                bilet.puan = Number(puanStr);
                 dbKaydet();
-                logEkle(gId, 'TICKET', 'Bilet Puanlandı', `#${bilet.kanalAdi}: ${puan} ★`, interaction.user.tag);
-                return interaction.reply({ content: `✅ **${puan} ★** değerlendirmeniz kaydedildi!`, ephemeral: true });
+                return interaction.reply({ content: `✅ **${bilet.puan} ★** değerlendirmeniz kaydedildi!`, ephemeral: true });
             }
 
             if (cid.startsWith('tcomm_')) {
                 const [, gId, tId] = cid.split('_');
-                const modal = new ModalBuilder()
-                    .setCustomId(`tmodal_${gId}_${tId}`)
-                    .setTitle('📝 Yetkili & Bilet Değerlendirme Yorumu');
-                const input = new TextInputBuilder()
-                    .setCustomId('yorum_metni')
-                    .setLabel('Yetkili ve destek süreci hakkındaki yorumunuz')
-                    .setStyle(TextInputStyle.Paragraph)
-                    .setRequired(true)
-                    .setMaxLength(400);
-                modal.addComponents(new ActionRowBuilder().addComponents(input));
+                const modal = new ModalBuilder().setCustomId(`tmodal_${gId}_${tId}`).setTitle('📝 Bilet Değerlendirme Yorumu');
+                modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('yorum_metni').setLabel('Yorumunuz').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(400)));
                 return interaction.showModal(modal);
             }
 
@@ -1503,26 +2214,23 @@ client.on('interactionCreate', async (interaction) => {
                 const [, durum, opId] = cid.split('_');
                 const ayar = sunucuAyarGetir(interaction.guildId);
                 const op = (ayar.operasyonlar || []).find(o => o.id === opId);
-                if (!op) return interaction.reply({ content: '❌ Operasyon kaydı bulunamadı.', ephemeral: true });
-
+                if (!op) return interaction.reply({ content: '❌ Operasyon bulunamadı.', ephemeral: true });
                 const etiket = `<@${interaction.user.id}>`;
                 op.katilanlar = (op.katilanlar || []).filter(x => x !== etiket);
                 op.mazeretliler = (op.mazeretliler || []).filter(x => x !== etiket);
                 op.belki = (op.belki || []).filter(x => x !== etiket);
-
                 if (durum === 'katil') op.katilanlar.push(etiket);
                 else if (durum === 'mazeret') op.mazeretliler.push(etiket);
                 else if (durum === 'belki') op.belki.push(etiket);
                 dbKaydet();
-
                 const embed = EmbedBuilder.from(interaction.message.embeds[0]).setFields(
                     { name: '📅 Tarih & Saat', value: op.tarihSaat, inline: true },
-                    { name: `✅ Katılacaklar (${op.katilanlar.length})`, value: op.katilanlar.join(', ') || 'Henüz yok', inline: false },
-                    { name: `❌ Mazeretliler (${op.mazeretliler.length})`, value: op.mazeretliler.join(', ') || 'Henüz yok', inline: false },
-                    { name: `🕒 Belki (${op.belki.length})`, value: op.belki.join(', ') || 'Henüz yok', inline: false }
+                    { name: `✅ Katılacaklar (${op.katilanlar.length})`, value: op.katilanlar.join(', ') || 'Henüz yok' },
+                    { name: `❌ Mazeretliler (${op.mazeretliler.length})`, value: op.mazeretliler.join(', ') || 'Henüz yok' },
+                    { name: `🕒 Belki (${op.belki.length})`, value: op.belki.join(', ') || 'Henüz yok' }
                 );
                 await interaction.message.edit({ embeds: [embed] });
-                return interaction.reply({ content: '🫡 Operasyon katılım durumunuz güncellendi!', ephemeral: true });
+                return interaction.reply({ content: '🫡 Katılım durumunuz güncellendi!', ephemeral: true });
             }
 
             if (cid === 'tsf_yoklama_katil') {
@@ -1532,30 +2240,23 @@ client.on('interactionCreate', async (interaction) => {
                 const etiket = `<@${interaction.user.id}>`;
                 if (mevcut.includes(etiket)) return interaction.reply({ content: '✅ Zaten yoklamadasınız.', ephemeral: true });
                 const yeni = mevcut === 'Henüz katılım yok.' ? `• ${etiket}` : `${mevcut}\n• ${etiket}`;
-                const embed = EmbedBuilder.from(oldEmbed).setFields({ name: `📋 Hazır Bulunan Personel (${yeni.split('\n').length} Kişi)`, value: yeni.slice(0, 1020) });
-                await interaction.message.edit({ embeds: [embed] });
+                await interaction.message.edit({ embeds: [EmbedBuilder.from(oldEmbed).setFields({ name: `📋 Hazır Bulunan Personel (${yeni.split('\n').length} Kişi)`, value: yeni.slice(0, 1020) })] });
                 return interaction.reply({ content: '🫡 Tekmiliniz alındı!', ephemeral: true });
             }
         }
 
-        // 5. MODAL GÖNDERİMLERİ (SES ODASI PANEL MODALI & TICKET YORUM MODALI)
+        // 5. MODALLAR
         if (interaction.isModalSubmit()) {
             if (interaction.customId.startsWith('sesmodal_')) {
                 const ozelMi = interaction.customId === 'sesmodal_ozel';
                 const ayar = sunucuAyarGetir(interaction.guildId);
                 const odaIsmi = interaction.fields.getTextInputValue('oda_isim').trim();
-                const limitHam = parseInt(interaction.fields.getTextInputValue('oda_limit'), 10);
-                const limit = isNaN(limitHam) ? 0 : Math.min(99, Math.max(0, limitHam));
-
+                const limit = Math.min(99, Math.max(0, parseInt(interaction.fields.getTextInputValue('oda_limit'), 10) || 0));
                 const permissionOverwrites = [];
                 if (ozelMi) {
                     permissionOverwrites.push({ id: interaction.guild.id, deny: [PermissionsBitField.Flags.Connect] });
-                    permissionOverwrites.push({
-                        id: interaction.user.id,
-                        allow: [PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.ManageChannels, PermissionsBitField.Flags.MoveMembers]
-                    });
+                    permissionOverwrites.push({ id: interaction.user.id, allow: [PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.ManageChannels, PermissionsBitField.Flags.MoveMembers] });
                 }
-
                 const oda = await interaction.guild.channels.create({
                     name: `${ozelMi ? '🔒' : '🔊'} ${odaIsmi}`,
                     type: ChannelType.GuildVoice,
@@ -1563,26 +2264,20 @@ client.on('interactionCreate', async (interaction) => {
                     userLimit: limit,
                     permissionOverwrites
                 });
-
                 ayar.ozelSesOdalari[oda.id] = { sahipId: interaction.user.id, otomatikSil: true, olusturma: Date.now() };
-                logEkle(interaction.guildId, 'SES', 'Panel Butonuyla Oda Oluşturuldu', `${oda.name} (Limit: ${limit || 'Sınırsız'})`, interaction.user.tag);
-                return interaction.reply({
-                    content: `✅ **${oda.name}** oluşturuldu: <#${oda.id}>\n*(Not: Oda boşaldığında sistem tarafından otomatik silinecektir. Özel odaysa kanal ayarlarından istediğiniz kişilere bağlanma izni verebilirsiniz.)*`,
-                    ephemeral: true
-                });
+                logEkle(interaction.guildId, 'SES', 'Özel Oda Açıldı', oda.name, interaction.user.tag);
+                return interaction.reply({ content: `✅ **${oda.name}** oluşturuldu: <#${oda.id}>`, ephemeral: true });
             }
 
             if (interaction.customId.startsWith('tmodal_')) {
                 const [, gId, tId] = interaction.customId.split('_');
-                const yorum = interaction.fields.getTextInputValue('yorum_metni').trim();
                 const ayar = sunucuAyarGetir(gId);
                 const bilet = ayar.kapatilanBiletler.find(b => b.id === tId);
                 if (bilet) {
-                    bilet.yorum = yorum;
+                    bilet.yorum = interaction.fields.getTextInputValue('yorum_metni').trim();
                     dbKaydet();
-                    logEkle(gId, 'TICKET', 'Bilet Yorumu Eklendi', `#${bilet.kanalAdi}: "${yorum.slice(0, 80)}"`, interaction.user.tag);
                 }
-                return interaction.reply({ content: '✅ Değerlendirme yorumunuz kaydedildi. Teşekkür ederiz!', ephemeral: true });
+                return interaction.reply({ content: '✅ Yorumunuz kaydedildi!', ephemeral: true });
             }
         }
     } catch (err) {
@@ -1594,39 +2289,31 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 // ============================================================================
-// 10. MESAJ OLAYLARI: GELİŞMİŞ AUTOMOD, AI, XP & PREFİX KOMUTLAR
+// 10. MESAJ OLAYLARI: AI MODERASYON, AUTOMOD, GELİŞMİŞ AI & ÖZEL KOMUTLAR (!XXXXX)
 // ============================================================================
 const spamTakip = new Map();
 const sonMesajTakip = new Map();
 const xpCooldown = new Map();
 
-async function automodCezaUygula(message, ayar, sebep) {
+async function automodCezaUygula(message, ayar, sebep, kaynak = 'AutoMod') {
     await message.delete().catch(() => {});
-    const aksiyon = ayar.automod.cezaAksiyonu || 'sil_uyar';
-    const uyariMsg = await message.channel.send(`🛡️ ${message.author}, **${sebep}** nedeniyle mesajınız silindi.`);
-    setTimeout(() => uyariMsg.delete().catch(() => {}), 4500);
+    const aksiyon = ayar.automod.cezaAksiyonu || 'uyari_merdiveni';
 
-    if (aksiyon === 'sil_uyar' || aksiyon === 'sil_timeout') {
-        ayar.uyarilar.unshift({
-            id: crypto.randomUUID(),
-            kullaniciId: message.author.id,
-            kullaniciTag: message.author.tag,
-            yetkili: 'AutoMod',
-            sebep: `Otomatik: ${sebep}`,
-            tarih: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
-        });
-        const toplamUyari = ayar.uyarilar.filter(u => u.kullaniciId === message.author.id).length;
-        const esik = Number(ayar.automod.otoCezaEsik) || 3;
-
-        if (aksiyon === 'sil_timeout' || toplamUyari >= esik) {
-            const dk = aksiyon === 'sil_timeout' ? (Number(ayar.automod.timeoutDakika) || 5) : (Number(ayar.automod.otoCezaTimeoutDakika) || 15);
-            await message.member?.timeout(dk * 60 * 1000, `AutoMod: ${sebep}`).catch(() => {});
-            logEkle(message.guild.id, 'AUTOMOD', `Otomatik Susturma (${dk} dk)`, `${message.author.tag} — ${sebep}`, 'AutoMod');
-        } else {
-            logEkle(message.guild.id, 'AUTOMOD', 'Otomatik Uyarı', `${message.author.tag} — ${sebep} (${toplamUyari}/${esik})`, 'AutoMod');
-        }
+    if (aksiyon === 'uyari_merdiveni' || aksiyon === 'sil_uyar') {
+        const res = await uyariEkleVeMerdivenUygula(message.guild, message.member, ayar, kaynak, sebep);
+        const uyariMsg = await message.channel.send(`🛡️ ${message.author}, **${sebep}** nedeniyle uyarıldınız! (Toplam Uyarı: **${res.toplam}** | İşlem: **${res.uygulananCeza}**)`);
+        setTimeout(() => uyariMsg.delete().catch(() => {}), 5500);
+        logEkle(message.guild.id, 'AUTOMOD', `${kaynak}: ${res.uygulananCeza}`, `${message.author.tag} — ${sebep}`, kaynak);
+    } else if (aksiyon === 'sil_timeout') {
+        const dk = Number(ayar.automod.timeoutDakika) || 5;
+        await message.member?.timeout(dk * 60 * 1000, `${kaynak}: ${sebep}`).catch(() => {});
+        const uyariMsg = await message.channel.send(`🔇 ${message.author}, **${sebep}** nedeniyle **${dk} dakika** susturuldunuz.`);
+        setTimeout(() => uyariMsg.delete().catch(() => {}), 5500);
+        logEkle(message.guild.id, 'AUTOMOD', `${kaynak} Susturma (${dk} dk)`, `${message.author.tag} — ${sebep}`, kaynak);
     } else {
-        logEkle(message.guild.id, 'AUTOMOD', 'Mesaj Silindi', `${message.author.tag} — ${sebep}`, 'AutoMod');
+        const uyariMsg = await message.channel.send(`🛡️ ${message.author}, **${sebep}** nedeniyle mesajınız silindi.`);
+        setTimeout(() => uyariMsg.delete().catch(() => {}), 4500);
+        logEkle(message.guild.id, 'AUTOMOD', 'Mesaj Silindi', `${message.author.tag} — ${sebep}`, kaynak);
     }
 }
 
@@ -1635,9 +2322,10 @@ client.on('messageCreate', async (message) => {
         if (!message.guild || message.author.bot) return;
         const ayar = sunucuAyarGetir(message.guild.id);
         const member = message.member;
-        const yoneticiMi = member?.permissions.has(PermissionsBitField.Flags.Administrator);
+        const superMi = message.author.id === SUPER_ADMIN_ID;
+        const yoneticiMi = superMi || member?.permissions.has(PermissionsBitField.Flags.Administrator);
 
-        // --- A. AUTOMOD ---
+        // --- A. AUTOMOD & AI MODERASYON ---
         const muafMi = yoneticiMi || (ayar.automod?.muafRol && member?.roles.cache.has(ayar.automod.muafRol));
         if (ayar.moduller.automod && !muafMi) {
             if (ayar.automod.spamEngel) {
@@ -1651,11 +2339,11 @@ client.on('messageCreate', async (message) => {
                 const onceki = sonMesajTakip.get(message.author.id);
                 sonMesajTakip.set(message.author.id, { icerik: message.content.toLowerCase(), zaman: Date.now() });
                 if (onceki && onceki.icerik === message.content.toLowerCase() && Date.now() - onceki.zaman < 10000) {
-                    return automodCezaUygula(message, ayar, 'Tekrarlanan Mesaj (Duplicate Spam)');
+                    return automodCezaUygula(message, ayar, 'Tekrarlanan Mesaj Spam');
                 }
             }
             if (ayar.automod.kufurEngel && kufurKontrolEt(message.content, ayar.automod.yasakliKelimeler)) {
-                return automodCezaUygula(message, ayar, 'Küfür / Yasaklı Kelime');
+                return automodCezaUygula(message, ayar, 'Küfür / Argo Kullanımı');
             }
             if (ayar.automod.linkEngel && /(https?:\/\/|discord\.gg\/|discord\.com\/invite\/)/i.test(message.content)) {
                 return automodCezaUygula(message, ayar, 'İzinsiz Bağlantı / Davet Linki');
@@ -1665,6 +2353,15 @@ client.on('messageCreate', async (message) => {
                 const buyukler = harfler.replace(/[^A-ZĞÜŞİÖÇ]/g, '');
                 if (harfler.length >= 10 && buyukler.length / harfler.length > 0.75) {
                     return automodCezaUygula(message, ayar, 'Aşırı Büyük Harf (CAPS)');
+                }
+            }
+            // AI MODERASYON (Gizlenmiş küfür / hakaret / argo tespiti)
+            if (ayar.moduller.aiModerasyon && ayar.automod.aiModerasyonAktif && message.content.length >= 2) {
+                const sonKontrol = aiModCooldown.get(message.author.id) || 0;
+                if (Date.now() - sonKontrol > 3000) {
+                    aiModCooldown.set(message.author.id, Date.now());
+                    const aiSebep = await aiModerasyonDenetle(message.content);
+                    if (aiSebep) return automodCezaUygula(message, ayar, aiSebep, 'AI Moderasyon');
                 }
             }
         }
@@ -1698,12 +2395,12 @@ client.on('messageCreate', async (message) => {
             const yetkiliYazmisMi = mesajlar.some(m => !m.author.bot && m.author.id !== message.author.id);
             if (!yetkiliYazmisMi && mesajlar.size <= 4) {
                 await message.channel.sendTyping();
-                const aiCevap = await geminiSor(ayar.aiSistemTalimati + ' Destek biletindesin, yetkili gelene kadar nazikçe ilk yönlendirmeyi yap.', message.content);
+                const aiCevap = await geminiSor(ayar.aiSistemTalimati + ' Destek biletindesin, yetkili gelene kadar nazikçe yardımcı ol.', message.content);
                 await message.reply({ embeds: [new EmbedBuilder().setColor('#8b5cf6').setAuthor({ name: '🤖 AI Ön Destek' }).setDescription(aiCevap)] });
             }
         }
 
-        // --- D. GELİŞMİŞ YAPAY ZEKA ---
+        // --- D. GELİŞMİŞ AKILLI YAPAY ZEKA (TAM RÜTBE LİSTESİ + DOĞRU BAŞKOMUTAN OKUMA) ---
         if (ayar.moduller.ai && ayar.aiAktif && message.mentions.has(client.user) && !message.mentions.everyone) {
             const izinliKanallar = ayar.aiIzinliKanallar || [];
             if (izinliKanallar.length > 0 && !izinliKanallar.includes(message.channel.id)) {
@@ -1723,7 +2420,7 @@ client.on('messageCreate', async (message) => {
                     .join('\n');
 
                 const soranBilgi = uyeRutbeVeKimlikAnaliz(message.guild, message.member, ayar);
-                let hedefBilgileri = [];
+                const hedefBilgileri = [];
 
                 for (const [, mUser] of message.mentions.members) {
                     if (mUser.id === client.user.id) continue;
@@ -1739,31 +2436,76 @@ client.on('messageCreate', async (message) => {
                     if (bulunan) hedefBilgileri.push(uyeRutbeVeKimlikAnaliz(message.guild, bulunan, ayar));
                 }
 
+                // Rütbe listesi sorulduğunda TÜM TSF rütbe listesini eksiksiz ekle
+                const rutbeListesiSorulduMu = /(rütbe|rutbe|hiyerarşi|hiyerarsi|liste|sıralama|siralama)/i.test(soru);
+                const tamListeBlok = rutbeListesiSorulduMu
+                    ? `\n\n[RESMİ TAM TSF RÜTBE LİSTESİ — SORULURSA KISALTMADAN HEPSİNİ SIRASIYLA YAZ]:\n${tamRutbeListesiMetni(ayar)}`
+                    : '';
+
                 const kimlikBaglami = [
-                    `[SORUYU SORAN PERSONEL]: ${soranBilgi.displayName} (@${soranBilgi.tag}) | Rütbe: ${soranBilgi.enYuksekRutbe} | Roller: ${soranBilgi.roller.join(', ') || 'Yok'} | Seviye: ${soranBilgi.seviye} | Nöbet: ${soranBilgi.nobetDakika} dk`,
-                    ...hedefBilgileri.map(h => `[HEDEF PERSONEL]: ${h.displayName} (@${h.tag}) | Rütbe: ${h.enYuksekRutbe} | Roller: ${h.roller.join(', ') || 'Yok'} | Seviye: ${h.seviye} | Uyarı: ${h.uyariSayisi} | Nöbet: ${h.nobetDakika} dk`)
+                    `[SORUYU SORAN PERSONEL]: ${soranBilgi.displayName} (@${soranBilgi.tag}) | EN YÜKSEK ANA RÜTBESİ: ${soranBilgi.enYuksekRutbe} | Discord En Üst Rolü: ${soranBilgi.enYuksekDiscordRol} | Tüm Rolleri (Yukarıdan Aşağıya): ${soranBilgi.roller.join(', ') || 'Yok'} | Roblox: ${soranBilgi.robloxUsername || 'Doğrulanmamış'} | Seviye: ${soranBilgi.seviye} | Nöbet: ${soranBilgi.nobetDakika} dk`,
+                    ...hedefBilgileri.map(h => `[HEDEF PERSONEL]: ${h.displayName} (@${h.tag}) | EN YÜKSEK ANA RÜTBESİ: ${h.enYuksekRutbe} | Discord En Üst Rolü: ${h.enYuksekDiscordRol} | Tüm Rolleri: ${h.roller.join(', ') || 'Yok'} | Roblox: ${h.robloxUsername || 'Doğrulanmamış'} | Seviye: ${h.seviye} | Uyarı: ${h.uyariSayisi} | Nöbet: ${h.nobetDakika} dk`)
                 ].join('\n');
 
-                const tamPrompt = `${kimlikBaglami}\n\n[SOHBET BAĞLAMI (SON ${baglamSayisi} MESAJ)]:\n${baglamMetni}\n\n[SORU]:\n${soru}`;
-                const yanit = await geminiSor(ayar.aiSistemTalimati + ' Verilen personel rütbe/rol bilgilerini kesin gerçek olarak kullan.', tamPrompt);
+                const sistem = `${ayar.aiSistemTalimati}\nÖNEMLİ KURALLAR:\n1. Kullanıcının "EN YÜKSEK ANA RÜTBESİ" alanına kesinlikle sadık kal (örneğin Başkomutan ise kesinlikle Başkomutan de, asla alt rollerinden biri olan Lider vb. deme).\n2. Kullanıcı TSF rütbe listesini sorarsa sadece sınıf adlarını (er, subay vb.) söyleyip geçme; sana verilen RESMİ TAM TSF RÜTBE LİSTESİ'ndeki tüm rütbeleri eksiksiz ve sırasıyla yaz.`;
+
+                const tamPrompt = `${kimlikBaglami}${tamListeBlok}\n\n[SOHBET BAĞLAMI (SON ${baglamSayisi} MESAJ)]:\n${baglamMetni}\n\n[SORU]:\n${soru}`;
+                const yanit = await geminiSor(sistem, tamPrompt, [], 1800);
                 logEkle(message.guild.id, 'AI', 'AI Yanıt Üretti', `#${message.channel.name}: ${soru.slice(0, 60)}`, message.author.tag);
                 return message.reply(yanit.slice(0, 1990));
             }
         }
 
-        // --- E. PREFİX KOMUTLAR ---
+        // --- E. PREFİX KOMUTLAR & ÖZEL KOMUTLAR (!XXXXX) ---
         const prefix = ayar.prefix || '!';
         if (!message.content.startsWith(prefix)) return;
         const args = message.content.slice(prefix.length).trim().split(/\s+/);
         const komut = (args.shift() || '').toLowerCase();
 
+        // 1. PANELDE TANIMLI ÖZEL KOMUTLAR (!XXXXX)
+        if (ayar.moduller.ozelKomutlar) {
+            const ozel = (ayar.ozelKomutlar || []).find(k => k.tetikleyici.replace(/^!/, '').toLowerCase() === komut);
+            if (ozel) {
+                const components = [];
+                if (ozel.url && ozel.url.startsWith('http')) {
+                    components.push(new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setLabel(ozel.butonMetni || '🔗 Bağlantıya Git').setStyle(ButtonStyle.Link).setURL(ozel.url)
+                    ));
+                }
+                if (ozel.embedOlsun !== false) {
+                    const embed = new EmbedBuilder()
+                        .setColor(ozel.renk || ayar.tema.primary || '#3b82f6')
+                        .setDescription(`${ozel.cevapMetni || ''}${ozel.url ? `\n\n🔗 ${ozel.url}` : ''}`);
+                    const files = gorselEmbedVeEkHazirla(embed, ozel.gorselUrl);
+                    return message.reply({ embeds: [embed], components, files });
+                } else {
+                    return message.reply({ content: `${ozel.cevapMetni || ''} ${ozel.url || ''}`.trim(), components });
+                }
+            }
+        }
+
         if (komut === 'ping') return message.reply(`🏓 Pong! **${client.ws.ping} ms**`);
+
+        if (komut === 'update') {
+            const bekle = await message.reply('⏳ Roblox rütbeniz kontrol ediliyor...');
+            try {
+                const sonuc = await kullaniciRolleriniGuncelle(message.guild, message.member, ayar, args[0] || null);
+                const ek = sonuc.eklenenRoller.length ? sonuc.eklenenRoller.map(r => `➕ <@&${r.id}>`).join('\n') : '• Yok';
+                const cik = sonuc.cikarilanRoller.length ? sonuc.cikarilanRoller.map(r => `➖ <@&${r.id}>`).join('\n') : '• Yok';
+                return bekle.edit({
+                    content: '',
+                    embeds: [new EmbedBuilder().setColor('#10b981').setTitle('🔄 Roller Güncellendi')
+                        .addFields({ name: 'Roblox Rütbesi', value: `**${sonuc.grupBilgi.roleName}**` }, { name: '🟢 Eklenen Roller', value: ek }, { name: '🔴 Çıkarılan Roller', value: cik })]
+                });
+            } catch (e) {
+                return bekle.edit(`❌ ${e.message}`);
+            }
+        }
 
         if (komut === 'yoklama') {
             if (!yoneticiMi && !message.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) return message.reply('❌ Yetkiniz yok.');
             const baslik = args.join(' ') || 'TSF Genel Aktiflik Yoklaması';
-            const embed = new EmbedBuilder()
-                .setColor('#f59e0b').setTitle(`🫡 ${baslik}`)
+            const embed = new EmbedBuilder().setColor('#f59e0b').setTitle(`🫡 ${baslik}`)
                 .setDescription(`Komutan **${message.author}** yoklama başlattı.`)
                 .addFields({ name: '📋 Hazır Bulunan Personel (0 Kişi)', value: 'Henüz katılım yok.' }).setTimestamp();
             const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('tsf_yoklama_katil').setLabel('🫡 Buradayım').setStyle(ButtonStyle.Success));
@@ -1778,7 +2520,6 @@ client.on('messageCreate', async (message) => {
             const silinen = await message.channel.bulkDelete(adet, true);
             const info = await message.channel.send(`🧹 **${silinen.size}** mesaj silindi.`);
             setTimeout(() => info.delete().catch(() => {}), 3500);
-            logEkle(message.guild.id, 'MODERASYON', 'Toplu Mesaj Silindi', `#${message.channel.name} (${silinen.size})`, message.author.tag);
             return;
         }
 
@@ -1787,38 +2528,9 @@ client.on('messageCreate', async (message) => {
             const hedef = message.mentions.members.first();
             const sebep = args.slice(1).join(' ') || 'Disiplin ihlali';
             if (!hedef) return message.reply(`Kullanım: \`${prefix}uyar @kullanıcı <sebep>\``);
-            ayar.uyarilar.unshift({
-                id: crypto.randomUUID(), kullaniciId: hedef.id, kullaniciTag: hedef.user.tag,
-                yetkili: message.author.tag, sebep, tarih: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
-            });
-            const toplam = ayar.uyarilar.filter(u => u.kullaniciId === hedef.id).length;
-            const esik = Number(ayar.automod.otoCezaEsik) || 3;
-            let ekstra = '';
-            if (toplam >= esik) {
-                const dk = Number(ayar.automod.otoCezaTimeoutDakika) || 15;
-                await hedef.timeout(dk * 60 * 1000, `Uyarı eşiği (${toplam}/${esik})`).catch(() => {});
-                ekstra = `\n🔇 Uyarı eşiği (${esik}) aşıldığı için **${dk} dakika** otomatik susturma uygulandı!`;
-            }
-            logEkle(message.guild.id, 'MODERASYON', 'Resmi Uyarı', `${hedef.user.tag}: ${sebep}`, message.author.tag);
-            return message.reply(`⚠️ **${hedef.user.tag}** uyarıldı! (Toplam: **${toplam}**)\n📝 Sebep: ${sebep}${ekstra}`);
-        }
-
-        if (komut === 'ban' && message.member.permissions.has(PermissionsBitField.Flags.BanMembers)) {
-            const hedef = message.mentions.members.first();
-            if (!hedef) return message.reply(`Kullanım: \`${prefix}ban @kullanıcı <sebep>\``);
-            const sebep = args.slice(1).join(' ') || 'Komuta kararı';
-            await hedef.ban({ reason: sebep });
-            logEkle(message.guild.id, 'MODERASYON', 'Ban', `${hedef.user.tag}: ${sebep}`, message.author.tag);
-            return message.reply(`🔨 **${hedef.user.tag}** yasaklandı.`);
-        }
-
-        if (komut === 'kick' && message.member.permissions.has(PermissionsBitField.Flags.KickMembers)) {
-            const hedef = message.mentions.members.first();
-            if (!hedef) return message.reply(`Kullanım: \`${prefix}kick @kullanıcı <sebep>\``);
-            const sebep = args.slice(1).join(' ') || 'Uzaklaştırıldı';
-            await hedef.kick(sebep);
-            logEkle(message.guild.id, 'MODERASYON', 'Kick', `${hedef.user.tag}: ${sebep}`, message.author.tag);
-            return message.reply(`👢 **${hedef.user.tag}** atıldı.`);
+            const res = await uyariEkleVeMerdivenUygula(message.guild, hedef, ayar, message.author.tag, sebep);
+            logEkle(message.guild.id, 'MODERASYON', 'Resmi Uyarı', `${hedef.user.tag}: ${sebep} (${res.toplam}. uyarı)`, message.author.tag);
+            return message.reply(`⚠️ **${hedef.user.tag}** uyarıldı! (Toplam: **${res.toplam}** | İşlem: **${res.uygulananCeza}**)\n📝 Sebep: ${sebep}`);
         }
     } catch (err) {
         console.error('Mesaj işleme hatası:', err.message);
@@ -1826,7 +2538,7 @@ client.on('messageCreate', async (message) => {
 });
 
 // ============================================================================
-// 11. SUNUCU OLAYLARI: YENİ HESAP KORUMASI, KARŞILAMA, NÖBET & ÖZEL ODA
+// 11. SUNUCU OLAYLARI: KARA LİSTE ALARMI, YENİ HESAP, KARŞILAMA & NÖBET
 // ============================================================================
 const aktifNobetBaslangic = new Map();
 
@@ -1834,14 +2546,30 @@ client.on('guildMemberAdd', async (member) => {
     try {
         const ayar = sunucuAyarGetir(member.guild.id);
 
-        // Yeni Hesap Koruması (Anti-Alt / Raid)
+        // Kara Liste & Alt Hesap İstihbaratı
+        if (ayar.moduller.karaListe) {
+            const kara = (ayar.karaListe || []).find(k => k.discordId === member.id);
+            if (kara) {
+                const alarm = new EmbedBuilder()
+                    .setColor('#dc2626')
+                    .setTitle('🚨 KARA LİSTE İSTİHBARAT ALARMI!')
+                    .setDescription(`Kara listedeki **${member.user.tag}** (\`${member.id}\`) sunucuya katıldı!\n📝 **Sebep:** ${kara.sebep}\n👮 **Ekleyen:** ${kara.yetkili}`)
+                    .setTimestamp();
+                await modLogEmbedGonder(member.guild, ayar, alarm);
+                if (ayar.karaListeOtoBan) {
+                    await member.ban({ reason: `Ortak Kara Liste: ${kara.sebep}` }).catch(() => {});
+                    logEkle(member.guild.id, 'MODERASYON', 'Kara Liste Oto-Ban', member.user.tag, 'Sistem');
+                    return;
+                }
+            }
+        }
+
         const minGun = Number(ayar.automod?.yeniHesapKorumaGun) || 0;
         if (ayar.moduller.automod && minGun > 0) {
-            const hesapYasiGun = (Date.now() - member.user.createdTimestamp) / (1000 * 60 * 60 * 24);
-            if (hesapYasiGun < minGun) {
-                await member.send(`🛡️ **${member.guild.name}** güvenlik politikası gereği hesabınızın en az **${minGun} günlük** olması gerekmektedir.`).catch(() => {});
-                await member.kick(`Yeni hesap koruması (${Math.floor(hesapYasiGun)} gün < ${minGun} gün)`).catch(() => {});
-                logEkle(member.guild.id, 'AUTOMOD', 'Yeni Hesap Engellendi', `${member.user.tag} (${Math.floor(hesapYasiGun)} günlük)`, 'AutoMod');
+            const yas = (Date.now() - member.user.createdTimestamp) / (1000 * 60 * 60 * 24);
+            if (yas < minGun) {
+                await member.kick(`Yeni hesap koruması (${Math.floor(yas)} gün)`).catch(() => {});
+                logEkle(member.guild.id, 'AUTOMOD', 'Yeni Hesap Engellendi', member.user.tag, 'AutoMod');
                 return;
             }
         }
@@ -1854,14 +2582,9 @@ client.on('guildMemberAdd', async (member) => {
             const kanal = member.guild.channels.cache.get(ayar.girisCikisLogKanal);
             if (kanal) {
                 const aciklama = (ayar.girisMesaj || 'Hoş geldin {uye}!').replace('{uye}', `${member}`).replace('{tag}', member.user.tag).replace('{sayi}', member.guild.memberCount);
-                const embed = new EmbedBuilder()
-                    .setColor(ayar.girisRenk || '#10b981')
-                    .setTitle(ayar.girisBaslik || '📥 Yeni Personel Katıldı!')
-                    .setDescription(aciklama)
-                    .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
-                    .setTimestamp();
-                if (ayar.girisArkaPlanUrl?.startsWith('http')) embed.setImage(ayar.girisArkaPlanUrl);
-                await kanal.send({ embeds: [embed] }).catch(() => {});
+                const embed = new EmbedBuilder().setColor(ayar.girisRenk || '#10b981').setTitle(ayar.girisBaslik || '📥 Yeni Personel Katıldı!').setDescription(aciklama).setThumbnail(member.user.displayAvatarURL({ size: 256 })).setTimestamp();
+                const files = gorselEmbedVeEkHazirla(embed, ayar.girisArkaPlanUrl);
+                await kanal.send({ embeds: [embed], files }).catch(() => {});
             }
         }
     } catch (_) {}
@@ -1874,14 +2597,9 @@ client.on('guildMemberRemove', async (member) => {
             const kanal = member.guild.channels.cache.get(ayar.girisCikisLogKanal);
             if (kanal) {
                 const aciklama = (ayar.cikisMesaj || '**{tag}** ayrıldı.').replace('{tag}', member.user.tag).replace('{sayi}', member.guild.memberCount);
-                const embed = new EmbedBuilder()
-                    .setColor(ayar.cikisRenk || '#ef4444')
-                    .setTitle(ayar.cikisBaslik || '📤 Personel Ayrıldı')
-                    .setDescription(aciklama)
-                    .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
-                    .setTimestamp();
-                if (ayar.cikisArkaPlanUrl?.startsWith('http')) embed.setImage(ayar.cikisArkaPlanUrl);
-                await kanal.send({ embeds: [embed] }).catch(() => {});
+                const embed = new EmbedBuilder().setColor(ayar.cikisRenk || '#ef4444').setTitle(ayar.cikisBaslik || '📤 Personel Ayrıldı').setDescription(aciklama).setThumbnail(member.user.displayAvatarURL({ size: 256 })).setTimestamp();
+                const files = gorselEmbedVeEkHazirla(embed, ayar.cikisArkaPlanUrl);
+                await kanal.send({ embeds: [embed], files }).catch(() => {});
             }
         }
     } catch (_) {}
@@ -1895,7 +2613,6 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         if (!uye || uye.user.bot) return;
 
         const key = `${guild.id}_${uye.id}`;
-
         if (ayar.moduller.nobet) {
             if (!oldState.channelId && newState.channelId) {
                 aktifNobetBaslangic.set(key, Date.now());
@@ -1918,7 +2635,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             if (eskiKanal && eskiKanal.members.size === 0 && ayar.ozelSesOdalari[oldState.channelId].otomatikSil) {
                 delete ayar.ozelSesOdalari[oldState.channelId];
                 dbKaydet();
-                await eskiKanal.delete('Özel ses odası boşaldığı için otomatik silindi').catch(() => {});
+                await eskiKanal.delete('Özel ses odası boşaldı').catch(() => {});
                 logEkle(guild.id, 'SES', 'Özel Oda Otomatik Silindi', eskiKanal.name, 'Sistem');
             }
         }
@@ -1941,8 +2658,9 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 // 12. EXPRESS WEB SUNUCUSU VE TÜM API UÇ NOKTALARI
 // ============================================================================
 const app = express();
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '15mb' }));
 app.use('/kayitlar', express.static(KAYITLAR_DIR));
+app.use('/uploads', express.static(UPLOADS_DIR));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 function yetkiliOturumKontrol(req, res, next) {
@@ -1953,6 +2671,21 @@ function yetkiliOturumKontrol(req, res, next) {
     req.oturum = oturum;
     next();
 }
+
+// .PNG / .JPG GÖRSEL YÜKLEME ENDPOINTİ (Ticket ve Kartlar için)
+app.post('/api/upload-gorsel', yetkiliOturumKontrol, (req, res) => {
+    try {
+        const { dataUrl, dosyaAdi } = req.body;
+        const match = String(dataUrl || '').match(/^data:image\/(png|jpeg|jpg|webp|gif);base64,(.+)$/i);
+        if (!match) return res.status(400).json({ hata: 'Geçerli bir .png, .jpg, .webp veya .gif dosyası seçin.' });
+        const ext = match[1].toLowerCase() === 'jpeg' ? 'jpg' : match[1].toLowerCase();
+        const guvenliAd = `${Date.now()}_${String(dosyaAdi || 'gorsel').replace(/[^a-z0-9]/gi, '').slice(0, 20)}.${ext}`;
+        fs.writeFileSync(path.join(UPLOADS_DIR, guvenliAd), Buffer.from(match[2], 'base64'));
+        res.json({ basarili: true, url: `/uploads/${guvenliAd}` });
+    } catch (err) {
+        res.status(500).json({ hata: err.message });
+    }
+});
 
 app.get('/auth/discord', (req, res) => {
     if (!CLIENT_ID || !CLIENT_SECRET) return res.redirect('/?auth_error=' + encodeURIComponent('.env eksik!'));
@@ -1980,7 +2713,7 @@ app.get('/auth/discord/callback', async (req, res) => {
         const panelToken = crypto.randomBytes(32).toString('hex');
         const avatarUrl = user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128` : 'https://cdn.discordapp.com/embed/avatars/0.png';
 
-        sessions.set(panelToken, { id: user.id, username: user.global_name || user.username, avatar: avatarUrl, guilds: Array.isArray(guilds) ? guilds : [], isLocalAdmin: false });
+        sessions.set(panelToken, { id: user.id, username: user.global_name || user.username, avatar: avatarUrl, guilds: Array.isArray(guilds) ? guilds : [], isLocalAdmin: user.id === SUPER_ADMIN_ID });
         sessionKaydet();
         res.redirect(`/?token=${encodeURIComponent(panelToken)}&id=${encodeURIComponent(user.id)}&username=${encodeURIComponent(user.global_name || user.username)}&avatar=${encodeURIComponent(avatarUrl)}`);
     } catch (err) {
@@ -2003,7 +2736,7 @@ app.post('/auth/local-login', (req, res) => {
 
 app.get('/api/sunucular', yetkiliOturumKontrol, (req, res) => {
     const botGuilds = Array.from(client.guilds.cache.values());
-    const uygun = req.oturum.isLocalAdmin ? botGuilds : botGuilds.filter(bg => {
+    const uygun = (req.oturum.isLocalAdmin || req.oturum.id === SUPER_ADMIN_ID) ? botGuilds : botGuilds.filter(bg => {
         const ug = (req.oturum.guilds || []).find(g => g.id === bg.id);
         if (!ug) return false;
         const p = BigInt(ug.permissions || 0);
@@ -2032,16 +2765,10 @@ app.get('/api/panel/:guildId', yetkiliOturumKontrol, async (req, res) => {
         const y = b.ustlenenTag || b.kapatan || 'Bilinmiyor';
         if (!yetkiliMap[y]) yetkiliMap[y] = { yetkili: y, cozulmus: 0, puanToplam: 0, puanSayisi: 0, yorumlar: [] };
         yetkiliMap[y].cozulmus += 1;
-        if (typeof b.puan === 'number') {
-            yetkiliMap[y].puanToplam += b.puan;
-            yetkiliMap[y].puanSayisi += 1;
-        }
+        if (typeof b.puan === 'number') { yetkiliMap[y].puanToplam += b.puan; yetkiliMap[y].puanSayisi += 1; }
         if (b.yorum) yetkiliMap[y].yorumlar.push({ bilet: b.kanalAdi, puan: b.puan, yorum: b.yorum, tarih: b.kapanisTarihi });
     }
-    const yetkiliKarnesi = Object.values(yetkiliMap).map(y => ({
-        ...y,
-        ortalama: y.puanSayisi ? Number((y.puanToplam / y.puanSayisi).toFixed(2)) : 0
-    })).sort((a, b) => b.cozulmus - a.cozulmus);
+    const yetkiliKarnesi = Object.values(yetkiliMap).map(y => ({ ...y, ortalama: y.puanSayisi ? Number((y.puanToplam / y.puanSayisi).toFixed(2)) : 0 })).sort((a, b) => b.cozulmus - a.cozulmus);
 
     const terfiOnerileri = [];
     const hiyerarsi = ayarlar.tsfRutbeler || VARSAYILAN_TSF_RUTBELER;
@@ -2052,19 +2779,12 @@ app.get('/api/panel/:guildId', yetkiliOturumKontrol, async (req, res) => {
         const nobetDk = Math.round((ayarlar.nobetSureleri?.[uid]?.toplamSaniye || 0) / 60);
         if (uyariSayisi === 0 && (xp.seviye >= 3 || nobetDk >= 60)) {
             const analiz = uyeRutbeVeKimlikAnaliz(guild, uye, ayarlar);
-            const sonraki = (analiz.rutbeIndex >= 0 && analiz.rutbeIndex + 1 < hiyerarsi.length)
-                ? hiyerarsi[analiz.rutbeIndex + 1].ad
-                : hiyerarsi[0].ad;
-            terfiOnerileri.push({
-                userId: uid, username: uye.displayName, mevcutRutbe: analiz.enYuksekRutbe,
-                onerilenRutbe: sonraki, seviye: xp.seviye, nobetDk
-            });
+            const sonraki = (analiz.rutbeIndex >= 0 && analiz.rutbeIndex + 1 < hiyerarsi.length) ? hiyerarsi[analiz.rutbeIndex + 1].ad : hiyerarsi[0].ad;
+            terfiOnerileri.push({ userId: uid, username: uye.displayName, mevcutRutbe: analiz.enYuksekRutbe, onerilenRutbe: sonraki, seviye: xp.seviye, nobetDk });
         }
     }
 
-    const uyeler = guild.members.cache.filter(m => !m.user.bot).map(m => ({ id: m.id, name: `${m.displayName} (@${m.user.username})` })).slice(0, 200);
-
-    // Roblox rütbelerini otomatik yükle ki dropdown boş kalmasın
+    const uyeler = guild.members.cache.filter(m => !m.user.bot).map(m => ({ id: m.id, name: `${m.displayName} (@${m.user.username})` })).slice(0, 250);
     const robloxRoller = await robloxGrupRolleriniGetir(ayarlar.robloxGrupId || DEFAULT_ROBLOX_GROUP_ID).catch(() => []);
 
     res.json({
@@ -2076,15 +2796,10 @@ app.get('/api/panel/:guildId', yetkiliOturumKontrol, async (req, res) => {
         rolSayisi: guild.roles.cache.size,
         ping: client.ws.ping,
         uptimeSaniye: Math.floor(process.uptime()),
+        sesDiagnostik: { voiceLib: !!VoiceLib, opusMotoru: opusEngineName, bulutDb: !!FIREBASE_DB_URL },
         ayarlar,
         robloxRoller,
-        ticketIstatistik: {
-            acikSayisi: acikListe.length,
-            kapaliSayisi: kapatilan.length,
-            toplamSayisi: acikListe.length + kapatilan.length,
-            ortalamaPuan: ortPuan,
-            memnuniyetOrani
-        },
+        ticketIstatistik: { acikSayisi: acikListe.length, kapaliSayisi: kapatilan.length, toplamSayisi: acikListe.length + kapatilan.length, ortalamaPuan: ortPuan, memnuniyetOrani },
         acikBiletler: acikListe,
         yetkiliKarnesi,
         terfiOnerileri: terfiOnerileri.slice(0, 15),
@@ -2093,7 +2808,7 @@ app.get('/api/panel/:guildId', yetkiliOturumKontrol, async (req, res) => {
         sesKanallari: guild.channels.cache.filter(c => c.type === ChannelType.GuildVoice).map(c => ({ id: c.id, name: '🔊 ' + c.name })),
         kategoriler: guild.channels.cache.filter(c => c.type === ChannelType.GuildCategory).map(c => ({ id: c.id, name: c.name })),
         roller: guild.roles.cache.filter(r => !r.managed && r.id !== guild.id).sort((a, b) => b.position - a.position).map(r => ({ id: r.id, name: '@' + r.name })),
-        aktifSes: aktifOturum ? { aktif: true, kanalId: aktifOturum.kanalId, kanalAdi: aktifOturum.kanalAdi } : { aktif: false },
+        aktifSes: aktifOturum ? { aktif: true, kanalId: aktifOturum.kanalId, kanalAdi: aktifOturum.kanalAdi, alinanPaket: aktifOturum.alinanPaket } : { aktif: false },
         kayitlar
     });
 });
@@ -2108,102 +2823,188 @@ app.post('/api/ayarlar', yetkiliOturumKontrol, (req, res) => {
         tema: yeniAyarlar.tema ? { ...mevcut.tema, ...yeniAyarlar.tema } : mevcut.tema,
         moduller: yeniAyarlar.moduller ? { ...mevcut.moduller, ...yeniAyarlar.moduller } : mevcut.moduller,
         automod: yeniAyarlar.automod ? { ...mevcut.automod, ...yeniAyarlar.automod } : mevcut.automod,
-        leveling: yeniAyarlar.leveling ? { ...mevcut.leveling, ...yeniAyarlar.leveling } : mevcut.leveling
+        leveling: yeniAyarlar.leveling ? { ...mevcut.leveling, ...yeniAyarlar.leveling } : mevcut.leveling,
+        sinavAyar: yeniAyarlar.sinavAyar ? { ...mevcut.sinavAyar, ...yeniAyarlar.sinavAyar } : mevcut.sinavAyar
     };
     logEkle(guildId, 'PANEL', 'Ayarlar Güncellendi', aciklama || 'Panel yapılandırması', req.oturum.username);
     res.json({ basarili: true });
 });
 
-// METİN KANALINA "ÖZEL SES ODASI OLUŞTUR" PANELİ KUR
+// SİCİL: MADALYA & DİSİPLİN EKLE
+app.post('/api/sicil/madalya', yetkiliOturumKontrol, (req, res) => {
+    const { guildId, userId, ad, aciklama } = req.body;
+    const ayar = sunucuAyarGetir(guildId);
+    if (!ayar.sicilKayitlari[userId]) ayar.sicilKayitlari[userId] = { madalyalar: [], disiplin: [] };
+    ayar.sicilKayitlari[userId].madalyalar.unshift({ id: crypto.randomUUID(), ad, aciklama: aciklama || 'Komuta taltifi', yetkili: req.oturum.username, tarih: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }) });
+    logEkle(guildId, 'SICIL', 'Madalya Verildi', `${userId}: ${ad}`, req.oturum.username);
+    res.json({ basarili: true });
+});
+
+app.post('/api/sicil/disiplin', yetkiliOturumKontrol, (req, res) => {
+    const { guildId, userId, tur, sebep } = req.body;
+    const ayar = sunucuAyarGetir(guildId);
+    if (!ayar.sicilKayitlari[userId]) ayar.sicilKayitlari[userId] = { madalyalar: [], disiplin: [] };
+    ayar.sicilKayitlari[userId].disiplin.unshift({ id: crypto.randomUUID(), tur, sebep, yetkili: req.oturum.username, tarih: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }) });
+    logEkle(guildId, 'SICIL', 'Disiplin Kaydı', `${userId}: [${tur}] ${sebep}`, req.oturum.username);
+    res.json({ basarili: true });
+});
+
+// KARA LİSTE EKLE / SİL
+app.post('/api/karaliste', yetkiliOturumKontrol, async (req, res) => {
+    const { guildId, discordId, robloxAdi, sebep } = req.body;
+    const ayar = sunucuAyarGetir(guildId);
+    let rUser = null;
+    if (robloxAdi) rUser = await robloxKullaniciBul(robloxAdi).catch(() => null);
+    ayar.karaListe.unshift({
+        id: crypto.randomUUID(),
+        discordId: (discordId || '').trim(),
+        robloxId: rUser?.id || '',
+        robloxUsername: rUser?.username || (robloxAdi || '').trim(),
+        sebep: sebep || 'Komuta kara listesi',
+        yetkili: req.oturum.username,
+        tarih: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
+    });
+    logEkle(guildId, 'MODERASYON', 'Kara Listeye Eklendi', `${discordId || ''} ${robloxAdi || ''}`, req.oturum.username);
+    res.json({ basarili: true });
+});
+
+app.delete('/api/karaliste/:guildId/:id', yetkiliOturumKontrol, (req, res) => {
+    const ayar = sunucuAyarGetir(req.params.guildId);
+    ayar.karaListe = (ayar.karaListe || []).filter(k => k.id !== req.params.id);
+    dbKaydet();
+    res.json({ basarili: true });
+});
+
+// ÇEKİLİŞ OLUŞTUR / BİTİR / REROLL
+app.post('/api/cekilis/baslat', yetkiliOturumKontrol, async (req, res) => {
+    try {
+        const { guildId, kanalId, odul, sureDakika, kazananSayisi, sartRolId, sartMinSeviye, sartMinNobetDk } = req.body;
+        const guild = client.guilds.cache.get(guildId);
+        const kanal = guild?.channels.cache.get(kanalId);
+        if (!kanal || !odul) return res.status(400).json({ hata: 'Kanal ve ödül zorunludur.' });
+        const ayar = sunucuAyarGetir(guildId);
+        const id = crypto.randomUUID().slice(0, 8);
+        const bitisTimestamp = Date.now() + (Math.max(1, Number(sureDakika) || 60) * 60 * 1000);
+
+        const sartlar = [];
+        if (sartRolId) sartlar.push(`• Gerekli Rol: <@&${sartRolId}>`);
+        if (Number(sartMinSeviye) > 0) sartlar.push(`• Min. Seviye: **${sartMinSeviye}**`);
+        if (Number(sartMinNobetDk) > 0) sartlar.push(`• Min. Ses Nöbeti: **${sartMinNobetDk} dk**`);
+
+        const embed = new EmbedBuilder()
+            .setColor('#f59e0b')
+            .setTitle(`🎉 ÇEKİLİŞ: ${odul}`)
+            .setDescription(`Katılmak için butona tıklayın!\n\n⏰ **Bitiş:** <t:${Math.floor(bitisTimestamp / 1000)}:R>\n🏆 **Kazanan Sayısı:** ${kazananSayisi || 1}\n${sartlar.length ? '\n**Katılım Şartları:**\n' + sartlar.join('\n') : ''}`)
+            .setFooter({ text: `ID: ${id} • Başlatan: ${req.oturum.username}` })
+            .setTimestamp(bitisTimestamp);
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`cekilis_katil_${id}`).setLabel('🎉 Çekilişe Katıl (0)').setStyle(ButtonStyle.Success)
+        );
+        const msg = await kanal.send({ embeds: [embed], components: [row] });
+        ayar.cekilisler.unshift({
+            id, kanalId, mesajId: msg.id, odul, kazananSayisi: Number(kazananSayisi) || 1,
+            bitisTimestamp, olusturan: req.oturum.username, bitti: false,
+            katilanlar: [], kazananlar: [], sartRolId: sartRolId || '',
+            sartMinSeviye: Number(sartMinSeviye) || 0, sartMinNobetDk: Number(sartMinNobetDk) || 0
+        });
+        logEkle(guildId, 'CEKILIS', 'Panelden Çekiliş Başlatıldı', odul, req.oturum.username);
+        res.json({ basarili: true });
+    } catch (err) { res.status(500).json({ hata: err.message }); }
+});
+
+app.post('/api/cekilis/:guildId/:id/:aksiyon', yetkiliOturumKontrol, async (req, res) => {
+    const guild = client.guilds.cache.get(req.params.guildId);
+    const ayar = sunucuAyarGetir(req.params.guildId);
+    const c = (ayar.cekilisler || []).find(x => x.id === req.params.id);
+    if (!guild || !c) return res.status(404).json({ hata: 'Çekiliş bulunamadı.' });
+    if (req.params.aksiyon === 'sil') {
+        ayar.cekilisler = ayar.cekilisler.filter(x => x.id !== req.params.id);
+        dbKaydet();
+        return res.json({ basarili: true });
+    }
+    await cekilisSonlandir(guild, ayar, c, req.params.aksiyon === 'reroll');
+    res.json({ basarili: true });
+});
+
+// CANLI SES ANONS (TTS)
+app.post('/api/ses-anons', yetkiliOturumKontrol, async (req, res) => {
+    try {
+        const guild = client.guilds.cache.get(req.body.guildId);
+        if (!guild || !req.body.kanalId || !req.body.metin) return res.status(400).json({ hata: 'Kanal ve anons metni zorunludur.' });
+        await sesKanalinaAnonsYap(guild, req.body.kanalId, req.body.metin);
+        logEkle(req.body.guildId, 'SES', 'Canlı TTS Anons', req.body.metin.slice(0, 60), req.oturum.username);
+        res.json({ basarili: true });
+    } catch (err) { res.status(500).json({ hata: err.message }); }
+});
+
+// SES KAYIT OYNATMA (Yerel disk veya Discord CDN yedeğinden)
+app.get('/api/ses-kayit/:id/dosya', (req, res) => {
+    const kayit = (db.sesKayitlari || []).find(k => k.id === req.params.id);
+    if (!kayit) return res.status(404).end();
+    const yerel = path.join(KAYITLAR_DIR, kayit.dosyaAdi);
+    if (fs.existsSync(yerel)) return res.sendFile(yerel);
+    if (kayit.discordUrl) return res.redirect(kayit.discordUrl);
+    res.status(404).end();
+});
+
 app.post('/api/ses-odasi/panel-kur', yetkiliOturumKontrol, async (req, res) => {
     try {
         const { guildId, kanalId, kategoriId, baslik, aciklama, renk } = req.body;
         const guild = client.guilds.cache.get(guildId);
         const kanal = guild?.channels.cache.get(kanalId);
-        if (!kanal) return res.status(404).json({ hata: 'Hedef metin kanalı bulunamadı.' });
-
+        if (!kanal) return res.status(404).json({ hata: 'Metin kanalı bulunamadı.' });
         const ayar = sunucuAyarGetir(guildId);
-        if (kategoriId !== undefined) {
-            ayar.ozelSesKategori = kategoriId;
-            dbKaydet();
-        }
+        if (kategoriId !== undefined) { ayar.ozelSesKategori = kategoriId; dbKaydet(); }
 
         const embed = new EmbedBuilder()
             .setColor(renk || ayar.tema?.primary || '#3b82f6')
             .setTitle(baslik || '🎙️ Özel Ses Odası Oluşturma Merkezi')
-            .setDescription(aciklama || 'Aşağıdaki butonları kullanarak kendinize veya ekibinize özel ses odası oluşturabilirsiniz.\n\n• **🔊 Herkese Açık Oda:** Tüm personelin katılabileceği ses odası açar.\n• **🔒 Özel / Kilitli Oda:** Sadece sizin yönetebileceğiniz kilitli ses odası açar.\n• *Oluşturulan odalar boşaldığında otomatik silinir.*')
-            .setFooter({ text: 'ORDU YÖNETİMİ • Dinamik Ses Sistemi' })
+            .setDescription(aciklama || 'Aşağıdaki butonlarla ses odası oluşturabilirsiniz. Oda boşaldığında otomatik silinir.')
             .setTimestamp();
-
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('ses_panel_acik_olustur').setLabel('🔊 Herkese Açık Oda Oluştur').setStyle(ButtonStyle.Success),
             new ButtonBuilder().setCustomId('ses_panel_ozel_olustur').setLabel('🔒 Özel / Kilitli Oda Oluştur').setStyle(ButtonStyle.Primary)
         );
-
         await kanal.send({ embeds: [embed], components: [row] });
         logEkle(guildId, 'SES', 'Ses Odası Paneli Kuruldu', `#${kanal.name}`, req.oturum.username);
         res.json({ basarili: true });
-    } catch (err) {
-        res.status(500).json({ hata: err.message });
-    }
+    } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
-// WEB PANELDEN DOĞRUDAN MODERASYON AKSİYONU (UYAR / SUSTUR / AT / YASAKLA)
 app.post('/api/moderasyon/islem', yetkiliOturumKontrol, async (req, res) => {
     try {
         const { guildId, userId, tur, sebep, dakika } = req.body;
         const guild = client.guilds.cache.get(guildId);
-        if (!guild || !userId) return res.status(400).json({ hata: 'Sunucu ve personel seçimi zorunludur.' });
+        if (!guild || !userId) return res.status(400).json({ hata: 'Sunucu ve personel seçin.' });
         const ayar = sunucuAyarGetir(guildId);
         const member = await guild.members.fetch(userId).catch(() => null);
         const tag = member ? member.user.tag : userId;
-        const temizSebep = sebep?.trim() || 'Komuta merkezi kararı';
+        const temizSebep = sebep?.trim() || 'Komuta kararı';
 
         if (tur === 'uyar') {
-            ayar.uyarilar.unshift({
-                id: crypto.randomUUID(),
-                kullaniciId: userId,
-                kullaniciTag: tag,
-                yetkili: `${req.oturum.username} (Panel)`,
-                sebep: temizSebep,
-                tarih: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
-            });
-            logEkle(guildId, 'MODERASYON', 'Panelden Resmi Uyarı', `${tag}: ${temizSebep}`, req.oturum.username);
-            return res.json({ basarili: true, mesaj: `${tag} resmi olarak uyarıldı.` });
+            if (!member) return res.status(404).json({ hata: 'Üye bulunamadı.' });
+            const r = await uyariEkleVeMerdivenUygula(guild, member, ayar, `${req.oturum.username} (Panel)`, temizSebep);
+            return res.json({ basarili: true, mesaj: `${tag} uyarıldı (${r.toplam}. uyarı → ${r.uygulananCeza})` });
         }
-        if (tur === 'sustur') {
-            if (!member) return res.status(404).json({ hata: 'Üye sunucuda bulunamadı.' });
+        if (tur === 'sustur' && member) {
             const dk = Math.min(10080, Math.max(1, Number(dakika) || 10));
             await member.timeout(dk * 60 * 1000, temizSebep);
-            logEkle(guildId, 'MODERASYON', `Panelden Susturma (${dk} dk)`, `${tag}: ${temizSebep}`, req.oturum.username);
-            return res.json({ basarili: true, mesaj: `${tag} ${dk} dakika susturuldu.` });
+            return res.json({ basarili: true, mesaj: `${tag} ${dk} dk susturuldu.` });
         }
-        if (tur === 'at') {
-            if (!member) return res.status(404).json({ hata: 'Üye sunucuda bulunamadı.' });
-            await member.kick(temizSebep);
-            logEkle(guildId, 'MODERASYON', 'Panelden Atıldı (Kick)', `${tag}: ${temizSebep}`, req.oturum.username);
-            return res.json({ basarili: true, mesaj: `${tag} sunucudan atıldı.` });
-        }
-        if (tur === 'yasakla') {
-            await guild.members.ban(userId, { reason: temizSebep });
-            logEkle(guildId, 'MODERASYON', 'Panelden Yasaklandı (Ban)', `${tag}: ${temizSebep}`, req.oturum.username);
-            return res.json({ basarili: true, mesaj: `${tag} sunucudan yasaklandı.` });
-        }
-        res.status(400).json({ hata: 'Geçersiz moderasyon işlemi.' });
-    } catch (err) {
-        res.status(500).json({ hata: err.message });
-    }
+        if (tur === 'at' && member) { await member.kick(temizSebep); return res.json({ basarili: true, mesaj: `${tag} atıldı.` }); }
+        if (tur === 'yasakla') { await guild.members.ban(userId, { reason: temizSebep }); return res.json({ basarili: true, mesaj: `${tag} yasaklandı.` }); }
+        res.status(400).json({ hata: 'İşlem uygulanamadı.' });
+    } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
 app.get('/api/ticket/acik/:guildId/:kanalId', yetkiliOturumKontrol, async (req, res) => {
     try {
-        const guild = client.guilds.cache.get(req.params.guildId);
-        const kanal = guild?.channels.cache.get(req.params.kanalId);
-        if (!kanal) return res.status(404).json({ hata: 'Bilet kanalı bulunamadı.' });
+        const kanal = client.guilds.cache.get(req.params.guildId)?.channels.cache.get(req.params.kanalId);
+        if (!kanal) return res.status(404).json({ hata: 'Kanal bulunamadı.' });
         const mesajlar = await kanal.messages.fetch({ limit: 80 });
         const sirali = Array.from(mesajlar.values()).reverse().map(m => ({
-            yazar: m.author.tag,
-            icerik: m.content || (m.attachments.size ? '[Görsel / Dosya]' : '[Embed]'),
+            yazar: m.author.tag, icerik: m.content || (m.attachments.size ? '[Görsel]' : '[Embed]'),
             ekler: Array.from(m.attachments.values()).map(a => a.url),
             zaman: new Date(m.createdTimestamp).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
         }));
@@ -2218,45 +3019,24 @@ app.get('/api/sicil/:guildId/:userId', yetkiliOturumKontrol, async (req, res) =>
         if (!member) return res.status(404).json({ hata: 'Personel bulunamadı.' });
         const ayar = sunucuAyarGetir(guild.id);
         const analiz = uyeRutbeVeKimlikAnaliz(guild, member, ayar);
-        const uyarilar = (ayar.uyarilar || []).filter(u => u.kullaniciId === member.id);
-        res.json({
-            basarili: true,
-            avatar: member.user.displayAvatarURL({ size: 256 }),
-            katilim: member.joinedAt ? member.joinedAt.toLocaleDateString('tr-TR') : '-',
-            ...analiz,
-            uyarilar
-        });
+        res.json({ basarili: true, avatar: member.user.displayAvatarURL({ size: 256 }), ...analiz, uyarilar: (ayar.uyarilar || []).filter(u => u.kullaniciId === member.id) });
     } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
 app.post('/api/ses-odasi/olustur', yetkiliOturumKontrol, async (req, res) => {
     try {
-        const { guildId, isim, limit, ozel, izinliUyeler, izinliRoller, otomatikSil } = req.body;
+        const { guildId, isim, limit, ozel, izinliUyeler, izinliRoller } = req.body;
         const guild = client.guilds.cache.get(guildId);
-        if (!guild || !isim) return res.status(400).json({ hata: 'Sunucu ve oda ismi zorunludur.' });
+        if (!guild || !isim) return res.status(400).json({ hata: 'Oda ismi zorunludur.' });
         const ayar = sunucuAyarGetir(guildId);
-
         const permissionOverwrites = [];
         if (ozel) {
             permissionOverwrites.push({ id: guild.id, deny: [PermissionsBitField.Flags.Connect] });
-            for (const uid of (izinliUyeler || [])) {
-                if (uid) permissionOverwrites.push({ id: uid, allow: [PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.ViewChannel] });
-            }
-            for (const rid of (izinliRoller || [])) {
-                if (rid) permissionOverwrites.push({ id: rid, allow: [PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.ViewChannel] });
-            }
+            for (const uid of (izinliUyeler || [])) if (uid) permissionOverwrites.push({ id: uid, allow: [PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.ViewChannel] });
+            for (const rid of (izinliRoller || [])) if (rid) permissionOverwrites.push({ id: rid, allow: [PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.ViewChannel] });
         }
-
-        const oda = await guild.channels.create({
-            name: `${ozel ? '🔒' : '🔊'} ${isim}`,
-            type: ChannelType.GuildVoice,
-            parent: ayar.ozelSesKategori || null,
-            userLimit: Math.min(99, Math.max(0, Number(limit) || 0)),
-            permissionOverwrites
-        });
-
-        ayar.ozelSesOdalari[oda.id] = { sahipId: req.oturum.id, otomatikSil: otomatikSil !== false, olusturma: Date.now() };
-        logEkle(guildId, 'SES', 'Panelden Ses Odası Oluşturuldu', `${oda.name} (Limit: ${limit || 'Sınırsız'})`, req.oturum.username);
+        const oda = await guild.channels.create({ name: `${ozel ? '🔒' : '🔊'} ${isim}`, type: ChannelType.GuildVoice, parent: ayar.ozelSesKategori || null, userLimit: Math.min(99, Math.max(0, Number(limit) || 0)), permissionOverwrites });
+        ayar.ozelSesOdalari[oda.id] = { sahipId: req.oturum.id, otomatikSil: true, olusturma: Date.now() };
         res.json({ basarili: true, odaAdi: oda.name });
     } catch (err) { res.status(500).json({ hata: err.message }); }
 });
@@ -2264,18 +3044,21 @@ app.post('/api/ses-odasi/olustur', yetkiliOturumKontrol, async (req, res) => {
 app.post('/api/ses-kayit/:id/tutanak', yetkiliOturumKontrol, async (req, res) => {
     try {
         const kayit = (db.sesKayitlari || []).find(k => k.id === req.params.id);
-        if (!kayit) return res.status(404).json({ hata: 'Ses kaydı bulunamadı.' });
-        const dosyaYolu = path.join(KAYITLAR_DIR, kayit.dosyaAdi);
-        if (!fs.existsSync(dosyaYolu)) return res.status(404).json({ hata: 'WAV dosyası bulunamadı.' });
+        if (!kayit) return res.status(404).json({ hata: 'Kayıt bulunamadı.' });
+        const yerel = path.join(KAYITLAR_DIR, kayit.dosyaAdi);
+        let wavBuf = null;
+        if (fs.existsSync(yerel)) wavBuf = fs.readFileSync(yerel);
+        else if (kayit.discordUrl) {
+            const r = await guvenliFetch(kayit.discordUrl);
+            if (r.ok) wavBuf = Buffer.from(await r.arrayBuffer());
+        }
+        if (!wavBuf) return res.status(404).json({ hata: 'WAV dosyası bulunamadı.' });
+        if (wavBuf.length > 18 * 1024 * 1024) return res.status(400).json({ hata: 'Dosya 18 MB üzerinde.' });
 
-        const stats = fs.statSync(dosyaYolu);
-        if (stats.size > 18 * 1024 * 1024) return res.status(400).json({ hata: 'Dosya 18 MB üzerinde.' });
-
-        const base64Audio = fs.readFileSync(dosyaYolu).toString('base64');
         const tutanak = await geminiSor(
-            'Sen askeri komuta toplantı sekreterisin. Ses kaydını analiz et ve 1) Toplantı Özeti, 2) Alınan Kararlar, 3) Görev Dağılımı başlıklarıyla Türkçe tutanak hazırla.',
-            `Ses Kanalı: ${kayit.kanalAdi} (${kayit.tarih})`,
-            [{ inlineData: { mimeType: 'audio/wav', data: base64Audio } }]
+            'Askeri komuta toplantı sekreterisin. Ses kaydını analiz et ve 1) Toplantı Özeti, 2) Alınan Kararlar, 3) Görev Dağılımı başlıklarıyla Türkçe tutanak çıkar.',
+            `Kanal: ${kayit.kanalAdi} (${kayit.tarih})`,
+            [{ inlineData: { mimeType: 'audio/wav', data: wavBuf.toString('base64') } }]
         );
         kayit.tutanak = tutanak;
         dbKaydet(true);
@@ -2285,35 +3068,27 @@ app.post('/api/ses-kayit/:id/tutanak', yetkiliOturumKontrol, async (req, res) =>
 
 app.post('/api/loa/:guildId/:id/durum', yetkiliOturumKontrol, async (req, res) => {
     try {
-        const { durum } = req.body;
         const guild = client.guilds.cache.get(req.params.guildId);
         const ayar = sunucuAyarGetir(req.params.guildId);
         const loa = (ayar.loaTalepleri || []).find(l => l.id === req.params.id);
         if (!loa) return res.status(404).json({ hata: 'Talep bulunamadı.' });
-
-        loa.durum = durum;
+        loa.durum = req.body.durum;
         loa.yetkili = req.oturum.username;
-
-        if (durum === 'onaylandi' && guild) {
+        if (loa.durum === 'onaylandi' && guild) {
             loa.bitisTimestamp = Date.now() + (loa.gun * 24 * 60 * 60 * 1000);
             const member = await guild.members.fetch(loa.userId).catch(() => null);
-            let rol = (ayar.izinliRolId && guild.roles.cache.get(ayar.izinliRolId))
-                || guild.roles.cache.find(r => r.name.toLowerCase().includes('izinli'));
-            if (!rol) {
-                rol = await guild.roles.create({ name: '[İZİNLİ]', color: '#f59e0b', reason: 'LOA Sistemi' }).catch(() => null);
-                if (rol) ayar.izinliRolId = rol.id;
-            }
+            let rol = (ayar.izinliRolId && guild.roles.cache.get(ayar.izinliRolId)) || guild.roles.cache.find(r => r.name.toLowerCase().includes('izinli'));
+            if (!rol) { rol = await guild.roles.create({ name: '[İZİNLİ]', color: '#f59e0b' }).catch(() => null); if (rol) ayar.izinliRolId = rol.id; }
             if (member && rol) await member.roles.add(rol).catch(() => {});
         }
-        logEkle(req.params.guildId, 'LOA', `İzin ${durum === 'onaylandi' ? 'Onaylandı' : 'Reddedildi'}`, `${loa.username} (${loa.gun} gün)`, req.oturum.username);
+        dbKaydet();
         res.json({ basarili: true });
     } catch (err) { res.status(500).json({ hata: err.message }); }
 });
 
 app.post('/api/nobet/sifirla/:guildId', yetkiliOturumKontrol, (req, res) => {
-    const ayar = sunucuAyarGetir(req.params.guildId);
-    ayar.nobetSureleri = {};
-    logEkle(req.params.guildId, 'SES', 'Haftalık Nöbet Sıfırlandı', 'Tüm personel ses nöbet süreleri sıfırlandı', req.oturum.username);
+    sunucuAyarGetir(req.params.guildId).nobetSureleri = {};
+    dbKaydet();
     res.json({ basarili: true });
 });
 
@@ -2321,32 +3096,19 @@ app.post('/api/operasyon/olustur', yetkiliOturumKontrol, async (req, res) => {
     try {
         const { guildId, kanalId, baslik, tarihSaat, aciklama, etiketle } = req.body;
         const kanal = client.guilds.cache.get(guildId)?.channels.cache.get(kanalId);
-        if (!kanal || !baslik || !tarihSaat) return res.status(400).json({ hata: 'Kanal, başlık ve tarih/saat zorunludur.' });
-
+        if (!kanal || !baslik || !tarihSaat) return res.status(400).json({ hata: 'Eksik bilgi.' });
         const ayar = sunucuAyarGetir(guildId);
         const opId = crypto.randomUUID().slice(0, 8);
-        const embed = new EmbedBuilder()
-            .setColor('#ef4444')
-            .setTitle(`🎯 OPERASYON / EĞİTİM: ${baslik}`)
-            .setDescription(aciklama || 'Tüm personelin belirtilen saatte hazır bulunması gerekmektedir.')
-            .addFields(
-                { name: '📅 Tarih & Saat', value: tarihSaat, inline: true },
-                { name: '✅ Katılacaklar (0)', value: 'Henüz yok', inline: false },
-                { name: '❌ Mazeretliler (0)', value: 'Henüz yok', inline: false },
-                { name: '🕒 Belki (0)', value: 'Henüz yok', inline: false }
-            )
-            .setFooter({ text: `Planlayan: ${req.oturum.username}` })
-            .setTimestamp();
-
+        const embed = new EmbedBuilder().setColor('#ef4444').setTitle(`🎯 OPERASYON / EĞİTİM: ${baslik}`).setDescription(aciklama || 'Tüm personelin hazır bulunması gerekir.')
+            .addFields({ name: '📅 Tarih & Saat', value: tarihSaat, inline: true }, { name: '✅ Katılacaklar (0)', value: 'Henüz yok' }, { name: '❌ Mazeretliler (0)', value: 'Henüz yok' }, { name: '🕒 Belki (0)', value: 'Henüz yok' }).setTimestamp();
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`op_katil_${opId}`).setLabel('✅ Katılacağım').setStyle(ButtonStyle.Success),
             new ButtonBuilder().setCustomId(`op_mazeret_${opId}`).setLabel('❌ Mazeretliyim').setStyle(ButtonStyle.Danger),
             new ButtonBuilder().setCustomId(`op_belki_${opId}`).setLabel('🕒 Belki').setStyle(ButtonStyle.Secondary)
         );
-
         const msg = await kanal.send({ content: etiketle ? '@everyone' : undefined, embeds: [embed], components: [row] });
         ayar.operasyonlar.unshift({ id: opId, baslik, tarihSaat, aciklama, kanalId, mesajId: msg.id, olusturan: req.oturum.username, katilanlar: [], mazeretliler: [], belki: [] });
-        logEkle(guildId, 'OPERASYON', 'Operasyon Planlandı', `${baslik} (${tarihSaat})`, req.oturum.username);
+        dbKaydet();
         res.json({ basarili: true });
     } catch (err) { res.status(500).json({ hata: err.message }); }
 });
@@ -2364,15 +3126,20 @@ app.post('/api/roblox/rutbe-ver', yetkiliOturumKontrol, async (req, res) => {
         const { guildId, robloxKullaniciAdi, hedefRolId } = req.body;
         const guild = client.guilds.cache.get(guildId);
         if (!guild) return res.status(404).json({ hata: 'Sunucu bulunamadı.' });
-        const sonuc = await tamRutbeIslemiYap({ guild, robloxKullaniciAdi, hedefRolId, hedefDiscordMember: null, yetkiliEtiket: `${req.oturum.username} (Panel)` });
-        res.json({ basarili: true, mesaj: `${sonuc.robloxUser.username}: ${sonuc.eskiRolAdi} → ${sonuc.yeniRol.name}` });
+        const yetkiliMember = req.oturum.id !== 'local_admin' ? await guild.members.fetch(req.oturum.id).catch(() => null) : null;
+        const sonuc = await tamRutbeIslemiYap({
+            guild, robloxKullaniciAdi, hedefRolId,
+            yetkiliMember, yetkiliUserId: req.oturum.id, yetkiliEtiket: `${req.oturum.username} (Panel)`
+        });
+        res.json({ basarili: true, mesaj: `${sonuc.robloxUser.username}: ${sonuc.eskiRolAdi} → ${sonuc.yeniRol.name} (Discord için /update gerekir)` });
     } catch (err) { res.status(400).json({ hata: err.message }); }
 });
 
 app.post('/api/ai-test', yetkiliOturumKontrol, async (req, res) => {
     try {
         const ayar = sunucuAyarGetir(req.body.guildId);
-        const yanit = await geminiSor(ayar.aiSistemTalimati, req.body.soru);
+        const listeNot = /(rütbe|rutbe|hiyerarşi|liste)/i.test(req.body.soru || '') ? `\n\n[RESMİ TSF RÜTBE LİSTESİ]:\n${tamRutbeListesiMetni(ayar)}` : '';
+        const yanit = await geminiSor(ayar.aiSistemTalimati + ' Rütbe listesi sorulursa tamamını eksiksiz listele.', (req.body.soru || '') + listeNot);
         res.json({ basarili: true, yanit });
     } catch (err) { res.status(500).json({ yanit: 'Hata: ' + err.message }); }
 });
@@ -2385,19 +3152,12 @@ app.post('/api/ticket-kur', yetkiliOturumKontrol, async (req, res) => {
         const ayar = sunucuAyarGetir(guildId);
         const konular = ayar.ticketKonular?.length ? ayar.ticketKonular : [{ id: 'genel', isim: 'Genel Destek', aciklama: 'Yardım', emoji: '🎫' }];
 
-        const embed = new EmbedBuilder()
-            .setColor(renk || ayar.ticketPanelRenk || '#3b82f6')
-            .setTitle(baslik || '🎫 Destek Merkezi')
-            .setDescription(aciklama || 'Kategori seçerek bilet açabilirsiniz.')
-            .setTimestamp();
-        if ((gorselUrl || ayar.ticketPanelGorselUrl || '').startsWith('http')) embed.setImage(gorselUrl || ayar.ticketPanelGorselUrl);
-
-        const menu = new StringSelectMenuBuilder()
-            .setCustomId('ticket_kategori_sec')
-            .setPlaceholder('📂 Destek Kategorisi Seçin...')
+        const embed = new EmbedBuilder().setColor(renk || ayar.ticketPanelRenk || '#3b82f6').setTitle(baslik || '🎫 Destek Merkezi').setDescription(aciklama || 'Kategori seçerek bilet açabilirsiniz.').setTimestamp();
+        const files = gorselEmbedVeEkHazirla(embed, gorselUrl || ayar.ticketPanelGorselUrl);
+        const menu = new StringSelectMenuBuilder().setCustomId('ticket_kategori_sec').setPlaceholder('📂 Destek Kategorisi Seçin...')
             .addOptions(konular.slice(0, 25).map(k => ({ label: k.isim.slice(0, 100), description: (k.aciklama || 'Destek').slice(0, 100), value: k.id, emoji: k.emoji || '🎫' })));
 
-        await kanal.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] });
+        await kanal.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)], files });
         logEkle(guildId, 'TICKET', 'Ticket Paneli Kuruldu', `#${kanal.name}`, req.oturum.username);
         res.json({ basarili: true });
     } catch (err) { res.status(500).json({ hata: err.message }); }
@@ -2415,8 +3175,8 @@ app.post('/api/ses-dinle/baslat', yetkiliOturumKontrol, async (req, res) => {
 
 app.post('/api/ses-dinle/durdur', yetkiliOturumKontrol, async (req, res) => {
     const sonuc = await sesDinlemeDurdur(req.body.guildId);
-    logEkle(req.body.guildId, 'SES', 'Canlı Dinleme Durduruldu', sonuc?.dosyaAdi || 'Kayıtsız', req.oturum.username);
-    res.json({ basarili: true, dosyaAdi: sonuc?.dosyaAdi || null });
+    logEkle(req.body.guildId, 'SES', 'Canlı Dinleme Durduruldu', sonuc?.dosyaAdi || `Paket: ${sonuc?.alinanPaket || 0}`, req.oturum.username);
+    res.json({ basarili: true, ...(sonuc || {}) });
 });
 
 app.get('/api/ses-dinle/stream/:guildId', yetkiliOturumKontrol, (req, res) => {
@@ -2447,9 +3207,8 @@ app.post('/api/duyuru', yetkiliOturumKontrol, async (req, res) => {
         const kanal = client.guilds.cache.get(guildId)?.channels.cache.get(kanalId);
         if (!kanal) return res.status(404).json({ hata: 'Kanal bulunamadı.' });
         const embed = new EmbedBuilder().setColor(renk || '#3b82f6').setTitle(baslik || '📢 Duyuru').setDescription(icerik).setFooter({ text: req.oturum.username }).setTimestamp();
-        if (gorselUrl?.trim().startsWith('http')) embed.setImage(gorselUrl.trim());
-        await kanal.send({ content: herkesiEtiketle ? '@everyone' : undefined, embeds: [embed] });
-        logEkle(guildId, 'PANEL', 'Duyuru Yayınlandı', `#${kanal.name}`, req.oturum.username);
+        const files = gorselEmbedVeEkHazirla(embed, gorselUrl);
+        await kanal.send({ content: herkesiEtiketle ? '@everyone' : undefined, embeds: [embed], files });
         res.json({ basarili: true });
     } catch (err) { res.status(500).json({ hata: err.message }); }
 });
@@ -2464,6 +3223,8 @@ app.delete('/api/uyari/:guildId/:uyariId', yetkiliOturumKontrol, (req, res) => {
 // ============================================================================
 // 13. BAŞLATMA
 // ============================================================================
-app.listen(PORT, () => console.log(`🚀 ORDU YÖNETİMİ v4.1 http://localhost:${PORT} adresinde hazır.`));
+bulutDbYukle().finally(() => {
+    app.listen(PORT, () => console.log(`🚀 ORDU YÖNETİMİ v5.0 http://localhost:${PORT} adresinde hazır.`));
+});
 if (!DISCORD_TOKEN) console.error('❌ DISCORD_TOKEN eksik!');
 else client.login(DISCORD_TOKEN).catch(err => console.error('❌ Bot Giriş Hatası:', err.message));
