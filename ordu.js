@@ -101,6 +101,8 @@ const DEFAULT_ROBLOX_GROUP_ID = (process.env.ROBLOX_GROUP_ID || '137412624').tri
 const ROBLOX_API_KEY = (process.env.ROBLOX_API_KEY || '').trim();
 const ROBLOX_COOKIE = (process.env.ROBLOX_COOKIE || '').trim();
 const FIREBASE_DB_URL = (process.env.FIREBASE_DB_URL || '').trim().replace(/\/$/, '');
+const DB_BACKUP_CHANNEL_ID = (process.env.DB_BACKUP_CHANNEL_ID || '').trim();
+let bulutHazir = !FIREBASE_DB_URL;
 
 const DB_PATH = path.join(__dirname, 'veritabani.json');
 const SESSIONS_PATH = path.join(__dirname, 'sessions.json');
@@ -317,21 +319,81 @@ function verifyKaydet(discordId, robloxId, robloxUsername, yontem = 'Kod', guild
 let db = dbYukle();
 let dbSaveTimer = null;
 
+let sonDiscordYedekZaman = 0;
+
 async function bulutDbYukle() {
-    if (!FIREBASE_DB_URL) return;
+    if (!FIREBASE_DB_URL) {
+        bulutHazir = true;
+        return;
+    }
     try {
-        const res = await fetch(`${FIREBASE_DB_URL}/ordu_db.json`);
+        const res = await guvenliFetch(`${FIREBASE_DB_URL}/ordu_db.json`);
         if (res.ok) {
             const data = await res.json();
             if (data && typeof data === 'object' && data.sunucular) {
-                db = { sunucular: data.sunucular || {}, sesKayitlari: data.sesKayitlari || [], verifiedUsers: data.verifiedUsers || {}, pendingVerifications: data.pendingVerifications || {} };
+                db = {
+                    sunucular: data.sunucular || {},
+                    sesKayitlari: data.sesKayitlari || [],
+                    verifiedUsers: data.verifiedUsers || {},
+                    pendingVerifications: data.pendingVerifications || {}
+                };
                 fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
                 console.log('☁️ Firebase bulut veritabanı senkronize edildi.');
             }
         }
     } catch (e) {
         console.warn('⚠️ Bulut DB okuma uyarısı:', e.message);
+    } finally {
+        bulutHazir = true;
     }
+}
+
+async function discordKanalindanDbYukle() {
+    if (!DB_BACKUP_CHANNEL_ID) return;
+    try {
+        const ch = await client.channels.fetch(DB_BACKUP_CHANNEL_ID).catch(() => null);
+        if (!ch || !ch.isTextBased()) return;
+        const msgs = await ch.messages.fetch({ limit: 15 }).catch(() => null);
+        if (!msgs) return;
+        const yedekMsg = Array.from(msgs.values()).find(m => m.attachments.some(a => a.name && a.name.endsWith('.json')));
+        if (!yedekMsg) return;
+        const att = yedekMsg.attachments.find(a => a.name && a.name.endsWith('.json'));
+        const res = await guvenliFetch(att.url);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && typeof data === 'object' && data.sunucular) {
+            // Sadece yerel DB daha boşsa veya Firebase yoksa geri yükle
+            if (!FIREBASE_DB_URL || Object.keys(db.sunucular || {}).length === 0) {
+                db = {
+                    sunucular: data.sunucular || {},
+                    sesKayitlari: data.sesKayitlari || [],
+                    verifiedUsers: data.verifiedUsers || {},
+                    pendingVerifications: data.pendingVerifications || {}
+                };
+                fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
+                console.log('💾 Discord yedek kanalından veritabanı geri yüklendi.');
+            }
+        }
+    } catch (e) {
+        console.warn('⚠️ Discord DB yedek okuma uyarısı:', e.message);
+    }
+}
+
+async function discordKanalinaDbYedekle(zorla = false) {
+    if (!DB_BACKUP_CHANNEL_ID || !client.isReady()) return;
+    if (!zorla && Date.now() - sonDiscordYedekZaman < 120_000) return;
+    sonDiscordYedekZaman = Date.now();
+    try {
+        const ch = await client.channels.fetch(DB_BACKUP_CHANNEL_ID).catch(() => null);
+        if (!ch || !ch.isTextBased()) return;
+        const buf = Buffer.from(JSON.stringify(db), 'utf8');
+        if (buf.length < 7 * 1024 * 1024) {
+            await ch.send({
+                content: `💾 Otomatik DB Yedeği (${new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })})`,
+                files: [new AttachmentBuilder(buf, { name: 'veritabani_yedek.json' })]
+            }).catch(() => {});
+        }
+    } catch (_) {}
 }
 
 function dbKaydet(hemen = false) {
@@ -341,12 +403,15 @@ function dbKaydet(hemen = false) {
         } catch (e) {
             console.error('Veritabanı yazma hatası:', e.message);
         }
-        if (FIREBASE_DB_URL) {
+        if (FIREBASE_DB_URL && bulutHazir) {
             fetch(`${FIREBASE_DB_URL}/ordu_db.json`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(db)
             }).catch(() => {});
+        }
+        if (DB_BACKUP_CHANNEL_ID) {
+            discordKanalinaDbYedekle(false).catch(() => {});
         }
     };
     if (hemen) {
@@ -408,19 +473,26 @@ function sunucuAyarGetir(guildId) {
         aiSistemTalimati: 'Sen ORDU YÖNETİMİ (TSF) sunucusunun disiplinli, saygılı, akıllı ve Türkçeye tam hakim Komuta Yapay Zeka Asistanısın. Rütbeleri ve rolleri kesin doğrulukla oku, sorulan soruları eksiksiz ve net yanıtla.',
         ticketKategori: '',
         ticketYetkiliRol: '',
+        ticketUstlenKilidiAktif: true,
+        ticketUstlenYazanMinRol: '',
+        ticketUstlenGizle: false,
+        ticketLogKanal: '',
+        ticketMaxAcik: 2,
+        ticketKanalSablonu: 'bilet-{kullanici}-{no}',
+        ticketSayac: 0,
         ticketAiAktif: true,
         ticketPanelBaslik: '🎫 ORDU YÖNETİMİ — Destek & Yardım Merkezi',
         ticketPanelAciklama: 'Aşağıdaki açılır menüden talebinize uygun alt başlığı seçerek destek bileti oluşturabilirsiniz. Talebinize ekran görüntüsü (.png/.jpg) ekleyebilirsiniz.',
         ticketMenuPlaceholder: '📂 Destek Kategorisi / Alt Başlık Seçin...',
         ticketPanelFooter: 'ORDU YÖNETİMİ • 7/24 Komuta Destek Hattı',
         ticketAcilisBaslik: '{emoji} {kategori} — Destek Talebi',
-        ticketAcilisMesaj: 'Merhaba {uye}, destek talebiniz başarıyla oluşturuldu.\n\n• **Seçilen Alt Başlık:** {kategori}\n• **Açıklama:** {aciklama}\n\nYetkili komutanlarımız en kısa sürede ilgilenecektir.',
+        ticketAcilisMesaj: 'Merhaba {uye}, destek talebiniz başarıyla oluşturuldu.\n\n• **Seçilen Alt Başlık:** {kategori}\n• **Özel Karşılama Notu:**\n{aciklama}\n\nYetkili komutanlarımız en kısa sürede ilgilenecektir.',
         ticketPanelGorselUrl: '',
         ticketPanelRenk: '#3b82f6',
         ticketKonular: [
-            { id: 'rutbe_talebi', isim: 'Rütbe & Terfi Talebi', aciklama: 'TSF Roblox rütbe ve /update işlemleri', emoji: '🎖️', gorselUrl: '', karsilamaNotu: 'Lütfen Roblox kullanıcı adınızı ve mevcut rütbenizi yazın.' },
-            { id: 'sikayet_bildirim', isim: 'Disiplin & Şikayet Bildirimi', aciklama: 'Kural ihlali veya personel şikayetleri', emoji: '⚖️', gorselUrl: '', karsilamaNotu: 'Lütfen şikayet ettiğiniz kişinin adını ve varsa kanıt görselini ekleyin.' },
-            { id: 'genel_destek', isim: 'Genel Komuta Desteği', aciklama: 'Sunucu ve operasyon hakkında sorularınız', emoji: '🎫', gorselUrl: '', karsilamaNotu: 'Sorunuzu detaylıca yazabilirsiniz.' }
+            { id: 'rutbe_talebi', isim: 'Rütbe & Terfi Talebi', aciklama: 'TSF Roblox rütbe ve /update işlemleri', emoji: '🎖️', gorselUrl: '', kategoriId: '', yetkiliRolId: '', karsilamaNotu: '1) Roblox kullanıcı adınız:\n2) Mevcut rütbeniz:\n3) Talep detayınız:' },
+            { id: 'sikayet_bildirim', isim: 'Disiplin & Şikayet Bildirimi', aciklama: 'Kural ihlali veya personel şikayetleri', emoji: '⚖️', gorselUrl: '', kategoriId: '', yetkiliRolId: '', karsilamaNotu: '1) Şikayet edilen kişi:\n2) Olay özeti:\n3) Varsa ekran görüntüsü (.png/.jpg):' },
+            { id: 'genel_destek', isim: 'Genel Komuta Desteği', aciklama: 'Sunucu ve operasyon hakkında sorularınız', emoji: '🎫', gorselUrl: '', kategoriId: '', yetkiliRolId: '', karsilamaNotu: 'Sorunuzu veya talebinizi detaylıca yazabilirsiniz.' }
         ],
         sesPanelBaslik: '🎙️ Özel Ses Odası Oluşturma Merkezi',
         sesPanelAciklama: 'Aşağıdaki butonlara tıklayarak kendinize veya timinize özel ses odası açabilirsiniz. Oda boşaldığında otomatik silinir.',
@@ -1800,7 +1872,8 @@ async function uyariEkleVeMerdivenUygula(guild, member, ayar, yetkiliTag, sebep)
 }
 
 client.once('ready', async () => {
-    console.log(`👑 ORDU YÖNETİMİ v5.1 Bot Aktif: ${client.user.tag} | Opus Motoru: ${opusEngineName}`);
+    console.log(`👑 ORDU YÖNETİMİ v5.4 Bot Aktif: ${client.user.tag} | Opus Motoru: ${opusEngineName}`);
+    await discordKanalindanDbYukle();
     client.user.setActivity('TSF Komuta Ağı | /verify & /yardim', { type: 3 });
     await slashKomutlariKaydet();
 
@@ -1869,6 +1942,104 @@ function sinavSoruMesajiOlustur(oturum) {
             .setStyle(ButtonStyle.Primary))
     );
     return { embeds: [embed], components: [row], ephemeral: true };
+}
+
+// PRO TICKET YETKİ & CLAIM KİLİDİ YARDIMCILARI
+function ticketUstYetkiliMi(guild, member, ayar) {
+    if (!member) return false;
+    if (member.id === SUPER_ADMIN_ID) return true;
+    if (guild.ownerId === member.id) return true;
+    if (member.permissions.has(PermissionsBitField.Flags.Administrator)) return true;
+    if (ayar.ticketUstlenYazanMinRol) {
+        const minRol = guild.roles.cache.get(ayar.ticketUstlenYazanMinRol);
+        if (minRol && member.roles.highest && member.roles.highest.position >= minRol.position) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function ticketYetkiliMi(guild, member, ayar, konuYetkiliRolId = '') {
+    if (!member) return false;
+    if (ticketUstYetkiliMi(guild, member, ayar)) return true;
+    if (konuYetkiliRolId && member.roles.cache.has(konuYetkiliRolId)) return true;
+    if (ayar.ticketYetkiliRol && member.roles.cache.has(ayar.ticketYetkiliRol)) return true;
+    // Destek rolünün üstündeki roller de yetkili sayılır
+    const anaRol = guild.roles.cache.get(konuYetkiliRolId || ayar.ticketYetkiliRol);
+    if (anaRol && member.roles.highest && member.roles.highest.position >= anaRol.position) return true;
+    return false;
+}
+
+function ticketButonSatiriOlustur(ustlenildiMi = false) {
+    return new ActionRowBuilder().addComponents(
+        ustlenildiMi
+            ? new ButtonBuilder().setCustomId('ticket_birak').setLabel('🔄 Üstlenmeyi Bırak').setStyle(ButtonStyle.Secondary)
+            : new ButtonBuilder().setCustomId('ticket_ustlen').setLabel('🙋 Talebi Üstlen').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('ticket_uye_ekle').setLabel('👤 Üye Ekle').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('ticket_ai_ozet').setLabel('🤖 AI Özet').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('ticket_kapat').setLabel('🔒 Bileti Kapat & Değerlendir').setStyle(ButtonStyle.Danger)
+    );
+}
+
+async function ticketIzinleriUygula(guild, kanal, bilet, ayar) {
+    const sahipId = bilet.sahipId;
+    const ustlenenId = bilet.ustlenenId;
+    const konuRolId = bilet.konuYetkiliRolId || '';
+    const anaRolId = ayar.ticketYetkiliRol || '';
+    const minYazanRolId = ayar.ticketUstlenYazanMinRol || '';
+    const kilitli = Boolean(ustlenenId && ayar.ticketUstlenKilidiAktif !== false);
+
+    // 1. @everyone gizle
+    await kanal.permissionOverwrites.edit(guild.id, { ViewChannel: false, SendMessages: false }).catch(() => {});
+
+    // 2. Bilet sahibi her zaman görebilir ve yazabilir
+    if (sahipId) {
+        await kanal.permissionOverwrites.edit(sahipId, {
+            ViewChannel: true, SendMessages: true, AttachFiles: true, EmbedLinks: true, ReadMessageHistory: true
+        }).catch(() => {});
+    }
+
+    // 3. Destek Yetkili Rolleri (üstlenilince kilitlenir -> aynı roldekiler yazamaz!)
+    const yetkiliRolSet = new Set([anaRolId, konuRolId].filter(Boolean));
+    for (const rId of yetkiliRolSet) {
+        if (!guild.roles.cache.has(rId)) continue;
+        if (kilitli) {
+            if (ayar.ticketUstlenGizle) {
+                await kanal.permissionOverwrites.edit(rId, { ViewChannel: false, SendMessages: false }).catch(() => {});
+            } else {
+                await kanal.permissionOverwrites.edit(rId, { ViewChannel: true, SendMessages: false, ReadMessageHistory: true }).catch(() => {});
+            }
+        } else {
+            await kanal.permissionOverwrites.edit(rId, {
+                ViewChannel: true, SendMessages: true, AttachFiles: true, EmbedLinks: true, ReadMessageHistory: true
+            }).catch(() => {});
+        }
+    }
+
+    // 4. Belirlenen Minimum Üst Rol VE ÜSTÜNDEKİ TÜM ROLLER her zaman yazabilir!
+    if (minYazanRolId) {
+        const minRol = guild.roles.cache.get(minYazanRolId);
+        if (minRol) {
+            const ustRoller = guild.roles.cache
+                .filter(r => !r.managed && r.id !== guild.id && r.position >= minRol.position)
+                .sort((a, b) => b.position - a.position);
+            let sayac = 0;
+            for (const [, r] of ustRoller) {
+                if (sayac >= 20) break;
+                await kanal.permissionOverwrites.edit(r.id, {
+                    ViewChannel: true, SendMessages: true, AttachFiles: true, EmbedLinks: true, ReadMessageHistory: true
+                }).catch(() => {});
+                sayac++;
+            }
+        }
+    }
+
+    // 5. Talebi üstlenen kişi her zaman yazabilir
+    if (ustlenenId) {
+        await kanal.permissionOverwrites.edit(ustlenenId, {
+            ViewChannel: true, SendMessages: true, AttachFiles: true, EmbedLinks: true, ReadMessageHistory: true
+        }).catch(() => {});
+    }
 }
 
 // ============================================================================
@@ -2335,66 +2506,110 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 3. TICKET AÇILIR MENÜSÜ (.PNG DESTEKLİ)
+        // 3. PRO TICKET AÇILIR MENÜSÜ (KATEGORİ BAZLI DİSCORD KATEGORİSİ, ROL, LİMİT & CLAIM KİLİDİ)
         if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_kategori_sec') {
             const ayar = sunucuAyarGetir(interaction.guildId);
             if (!ayar.moduller.ticket) return interaction.reply({ content: '❌ Ticket sistemi kapalı.', ephemeral: true });
             await interaction.deferReply({ ephemeral: true });
 
+            // Maksimum açık bilet sınırı kontrolü
+            const maxAcik = Number(ayar.ticketMaxAcik) || 0;
+            if (maxAcik > 0) {
+                const mevcutAciklar = Object.values(ayar.acikBiletler || {}).filter(b => b.sahipId === interaction.user.id && interaction.guild.channels.cache.has(b.kanalId));
+                if (mevcutAciklar.length >= maxAcik) {
+                    return interaction.editReply(`⚠️ Aynı anda en fazla **${maxAcik}** açık biletiniz olabilir. Mevcut biletiniz: <#${mevcutAciklar[0].kanalId}>`);
+                }
+            }
+
             const secilenId = interaction.values[0];
-            const konuObj = (ayar.ticketKonular || []).find(k => k.id === secilenId) || { isim: 'Destek Talebi', emoji: '🎫', gorselUrl: '' };
-            const kanalAdi = `bilet-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12)}-${Date.now().toString().slice(-4)}`;
+            const konuObj = (ayar.ticketKonular || []).find(k => k.id === secilenId) || { isim: 'Destek Talebi', emoji: '🎫', gorselUrl: '', kategoriId: '', yetkiliRolId: '' };
+
+            ayar.ticketSayac = (Number(ayar.ticketSayac) || 0) + 1;
+            const biletNo = String(ayar.ticketSayac).padStart(4, '0');
+            const temizKullanici = interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) || 'uye';
+            const temizKategori = turkceNormalize(konuObj.isim).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 14) || 'bilet';
+            const sablon = (ayar.ticketKanalSablonu || 'bilet-{kullanici}-{no}')
+                .replace('{kullanici}', temizKullanici)
+                .replace('{kategori}', temizKategori)
+                .replace('{no}', biletNo)
+                .toLowerCase()
+                .replace(/[^a-z0-9-_]/g, '')
+                .slice(0, 90);
+            const kanalAdi = sablon || `bilet-${temizKullanici}-${biletNo}`;
+
+            const hedefKategoriId = (konuObj.kategoriId && interaction.guild.channels.cache.has(konuObj.kategoriId))
+                ? konuObj.kategoriId
+                : (ayar.ticketKategori && interaction.guild.channels.cache.has(ayar.ticketKategori) ? ayar.ticketKategori : null);
+
+            const aktifYetkiliRolId = konuObj.yetkiliRolId || ayar.ticketYetkiliRol || '';
 
             const izinler = [
-                { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
                 { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles, PermissionsBitField.Flags.EmbedLinks, PermissionsBitField.Flags.ReadMessageHistory] },
-                { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles, PermissionsBitField.Flags.ManageChannels] }
+                { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles, PermissionsBitField.Flags.ManageChannels, PermissionsBitField.Flags.ManageRoles] }
             ];
-            if (ayar.ticketYetkiliRol) {
-                izinler.push({ id: ayar.ticketYetkiliRol, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles, PermissionsBitField.Flags.EmbedLinks, PermissionsBitField.Flags.ReadMessageHistory] });
+            const eklenecekRoller = new Set([ayar.ticketYetkiliRol, konuObj.yetkiliRolId, ayar.ticketUstlenYazanMinRol].filter(Boolean));
+            for (const rId of eklenecekRoller) {
+                if (interaction.guild.roles.cache.has(rId)) {
+                    izinler.push({ id: rId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles, PermissionsBitField.Flags.EmbedLinks, PermissionsBitField.Flags.ReadMessageHistory] });
+                }
             }
 
             const biletKanal = await interaction.guild.channels.create({
                 name: kanalAdi,
                 type: ChannelType.GuildText,
-                parent: ayar.ticketKategori || null,
-                topic: `Sahip: ${interaction.user.tag} (${interaction.user.id}) | Konu: ${konuObj.isim}`,
+                parent: hedefKategoriId,
+                topic: `Bilet #${biletNo} | Sahip: ${interaction.user.tag} (${interaction.user.id}) | Konu: ${konuObj.isim}`,
                 permissionOverwrites: izinler
             });
 
             ayar.acikBiletler[biletKanal.id] = {
-                id: crypto.randomUUID(), kanalId: biletKanal.id, kanalAdi: biletKanal.name,
-                sahipId: interaction.user.id, sahipTag: interaction.user.tag, konu: konuObj.isim,
-                ustlenenId: '', ustlenenTag: 'Atanmadı',
-                acilisTarihi: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
+                id: crypto.randomUUID(),
+                biletNo,
+                kanalId: biletKanal.id,
+                kanalAdi: biletKanal.name,
+                sahipId: interaction.user.id,
+                sahipTag: interaction.user.tag,
+                konu: konuObj.isim,
+                konuYetkiliRolId: konuObj.yetkiliRolId || '',
+                ustlenenId: '',
+                ustlenenTag: 'Atanmadı',
+                ustlenenRolPos: -1,
+                eklenenUyeler: [],
+                acilisTarihi: new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }),
+                mesajlar: []
             };
             dbKaydet();
 
             const acilisBaslik = (ayar.ticketAcilisBaslik || '{emoji} {kategori} — Destek Talebi')
                 .replace('{emoji}', konuObj.emoji || '🎫')
                 .replace('{kategori}', konuObj.isim)
-                .replace('{uye}', interaction.user.username);
-            const acilisMetin = (ayar.ticketAcilisMesaj || 'Merhaba {uye}, destek talebiniz oluşturuldu.\n\n• **Kategori:** {kategori}\n• **Açıklama:** {aciklama}')
+                .replace('{uye}', interaction.user.username)
+                .replace('{no}', biletNo);
+            const acilisMetin = (ayar.ticketAcilisMesaj || 'Merhaba {uye}, destek talebiniz oluşturuldu.\n\n• **Kategori:** {kategori}\n• **Açıklama:**\n{aciklama}')
                 .replace('{uye}', String(interaction.user))
                 .replace('{kategori}', konuObj.isim)
+                .replace('{no}', biletNo)
                 .replace('{aciklama}', konuObj.karsilamaNotu || konuObj.aciklama || 'Talebinizi yazıp dilerseniz .png/.jpg ekran görüntüsü ekleyebilirsiniz.');
 
             const embed = new EmbedBuilder()
                 .setColor(ayar.ticketPanelRenk || '#3b82f6')
                 .setTitle(acilisBaslik)
                 .setDescription(acilisMetin)
+                .addFields(
+                    { name: '🆔 Bilet No', value: `#${biletNo}`, inline: true },
+                    { name: '📌 Durum', value: '🟡 Yetkili Bekleniyor', inline: true },
+                    { name: '🙋 Üstlenen', value: 'Henüz yok', inline: true }
+                )
                 .setFooter({ text: ayar.ticketPanelFooter || 'ORDU YÖNETİMİ • Destek Sistemi' })
                 .setTimestamp();
 
             const files = gorselEmbedVeEkHazirla(embed, konuObj.gorselUrl || ayar.ticketPanelGorselUrl);
-            const butonlar = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('ticket_ustlen').setLabel('🙋 Talebi Üstlen').setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId('ticket_ai_ozet').setLabel('🤖 AI Özet').setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder().setCustomId('ticket_kapat').setLabel('🔒 Bileti Kapat & Değerlendir').setStyle(ButtonStyle.Danger)
-            );
+            const butonlar = ticketButonSatiriOlustur(false);
 
-            const etiket = ayar.ticketYetkiliRol ? `${interaction.user} | <@&${ayar.ticketYetkiliRol}>` : `${interaction.user}`;
+            const etiket = aktifYetkiliRolId ? `${interaction.user} | <@&${aktifYetkiliRolId}>` : `${interaction.user}`;
             const acilisMsg = await biletKanal.send({ content: etiket, embeds: [embed], components: [butonlar], files });
+            ayar.acikBiletler[biletKanal.id].acilisMesajId = acilisMsg.id;
             ayar.acikBiletler[biletKanal.id].mesajlar = [{
                 msgId: acilisMsg.id,
                 yazar: client.user.tag,
@@ -2545,12 +2760,98 @@ client.on('interactionCreate', async (interaction) => {
 
             if (cid === 'ticket_ustlen') {
                 const ayar = sunucuAyarGetir(interaction.guildId);
-                if (ayar.acikBiletler[interaction.channelId]) {
-                    ayar.acikBiletler[interaction.channelId].ustlenenId = interaction.user.id;
-                    ayar.acikBiletler[interaction.channelId].ustlenenTag = interaction.user.tag;
-                    dbKaydet();
+                const bilet = ayar.acikBiletler[interaction.channelId];
+                if (!bilet) return interaction.reply({ content: '❌ Bu kanal aktif bir bilet değil.', ephemeral: true });
+
+                if (bilet.sahipId === interaction.user.id && !ticketUstYetkiliMi(interaction.guild, interaction.member, ayar)) {
+                    return interaction.reply({ content: '❌ Kendi açtığınız bileti üstlenemezsiniz!', ephemeral: true });
                 }
-                return interaction.reply({ embeds: [new EmbedBuilder().setColor('#10b981').setDescription(`🙋 Bu bilet **${interaction.user}** tarafından üstlenildi.`)] });
+                if (!ticketYetkiliMi(interaction.guild, interaction.member, ayar, bilet.konuYetkiliRolId)) {
+                    return interaction.reply({ content: '❌ Bu bileti üstlenmek için destek yetkilisi olmalısınız!', ephemeral: true });
+                }
+                if (bilet.ustlenenId && bilet.ustlenenId !== interaction.user.id && !ticketUstYetkiliMi(interaction.guild, interaction.member, ayar)) {
+                    return interaction.reply({ content: `⚠️ Bu bilet zaten <@${bilet.ustlenenId}> tarafından üstlenilmiş!`, ephemeral: true });
+                }
+
+                await interaction.deferReply();
+                bilet.ustlenenId = interaction.user.id;
+                bilet.ustlenenTag = interaction.user.tag;
+                bilet.ustlenenRolPos = interaction.member?.roles?.highest?.position ?? -1;
+                dbKaydet(true);
+
+                // İzinleri güncelle (Claim Kilidi: aynı roldekiler yazamaz, belirlenen min rol ve üstü yazabilir!)
+                await ticketIzinleriUygula(interaction.guild, interaction.channel, bilet, ayar);
+
+                // Açılış mesajındaki butonları ve durumu güncelle
+                if (bilet.acilisMesajId) {
+                    const aMsg = await interaction.channel.messages.fetch(bilet.acilisMesajId).catch(() => null);
+                    if (aMsg && aMsg.embeds[0]) {
+                        const yeniEmb = EmbedBuilder.from(aMsg.embeds[0]).setFields(
+                            { name: '🆔 Bilet No', value: `#${bilet.biletNo || '0000'}`, inline: true },
+                            { name: '📌 Durum', value: '🟢 Üstlenildi (Kilitli)', inline: true },
+                            { name: '🙋 Üstlenen', value: `${interaction.user}`, inline: true }
+                        );
+                        await aMsg.edit({ embeds: [yeniEmb], components: [ticketButonSatiriOlustur(true)] }).catch(() => {});
+                    }
+                }
+
+                const minRolNot = ayar.ticketUstlenYazanMinRol
+                    ? `🔒 **Yazma Kilidi Aktif:** Yalnızca bilet sahibi, ${interaction.user} ve <@&${ayar.ticketUstlenYazanMinRol}> **(ve üstü)** bu kanala yazabilir.`
+                    : (ayar.ticketUstlenKilidiAktif !== false ? `🔒 **Yazma Kilidi Aktif:** Aynı roldeki diğer yetkililerin yazma izni kapatıldı; yalnızca ${interaction.user}, bilet sahibi ve Yöneticiler yazabilir.` : '');
+
+                logEkle(interaction.guildId, 'TICKET', 'Bilet Üstlenildi', `#${interaction.channel.name} ← ${interaction.user.tag}`, interaction.user.tag);
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder().setColor('#10b981').setTitle('🙋 Talep Üstlenildi').setDescription(`Bu destek bileti **${interaction.user}** tarafından üstlenildi.
+
+${minRolNot}`)]
+                });
+            }
+
+            if (cid === 'ticket_birak') {
+                const ayar = sunucuAyarGetir(interaction.guildId);
+                const bilet = ayar.acikBiletler[interaction.channelId];
+                if (!bilet) return interaction.reply({ content: '❌ Aktif bilet bulunamadı.', ephemeral: true });
+                if (bilet.ustlenenId !== interaction.user.id && !ticketUstYetkiliMi(interaction.guild, interaction.member, ayar)) {
+                    return interaction.reply({ content: '❌ Yalnızca bileti üstlenen yetkili veya üst yönetim üstlenmeyi bırakabilir.', ephemeral: true });
+                }
+
+                await interaction.deferReply();
+                bilet.ustlenenId = '';
+                bilet.ustlenenTag = 'Atanmadı';
+                bilet.ustlenenRolPos = -1;
+                dbKaydet(true);
+
+                await ticketIzinleriUygula(interaction.guild, interaction.channel, bilet, ayar);
+
+                if (bilet.acilisMesajId) {
+                    const aMsg = await interaction.channel.messages.fetch(bilet.acilisMesajId).catch(() => null);
+                    if (aMsg && aMsg.embeds[0]) {
+                        const yeniEmb = EmbedBuilder.from(aMsg.embeds[0]).setFields(
+                            { name: '🆔 Bilet No', value: `#${bilet.biletNo || '0000'}`, inline: true },
+                            { name: '📌 Durum', value: '🟡 Tekrar Boşa Düştü', inline: true },
+                            { name: '🙋 Üstlenen', value: 'Henüz yok', inline: true }
+                        );
+                        await aMsg.edit({ embeds: [yeniEmb], components: [ticketButonSatiriOlustur(false)] }).catch(() => {});
+                    }
+                }
+                logEkle(interaction.guildId, 'TICKET', 'Üstlenme Bırakıldı', `#${interaction.channel.name}`, interaction.user.tag);
+                return interaction.editReply({ embeds: [new EmbedBuilder().setColor('#f59e0b').setDescription(`🔄 **${interaction.user}** bilet üstlenmesini bıraktı. Diğer destek yetkilileri tekrar yazabilir ve üstlenebilir.`)] });
+            }
+
+            if (cid === 'ticket_uye_ekle') {
+                const ayar = sunucuAyarGetir(interaction.guildId);
+                const bilet = ayar.acikBiletler[interaction.channelId];
+                if (!bilet) return interaction.reply({ content: '❌ Aktif bilet bulunamadı.', ephemeral: true });
+                if (!ticketYetkiliMi(interaction.guild, interaction.member, ayar, bilet.konuYetkiliRolId)) {
+                    return interaction.reply({ content: '❌ Bilete üye ekleme yetkiniz yok.', ephemeral: true });
+                }
+                const modal = new ModalBuilder().setCustomId('ticket_uye_modal').setTitle('👤 Bilete Üye Ekle');
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(
+                        new TextInputBuilder().setCustomId('eklenecek_id').setLabel('Eklenecek Üyenin Discord ID veya Kullanıcı Adı').setStyle(TextInputStyle.Short).setRequired(true)
+                    )
+                );
+                return interaction.showModal(modal);
             }
 
             if (cid === 'ticket_ai_ozet') {
@@ -2595,7 +2896,29 @@ client.on('interactionCreate', async (interaction) => {
                     mesajSayisi: sirali.length, mesajlar: sirali, puan: null, yorum: ''
                 });
                 delete ayar.acikBiletler[interaction.channelId];
-                logEkle(interaction.guildId, 'TICKET', 'Bilet Kapatıldı', `#${interaction.channel.name}`, interaction.user.tag);
+                dbKaydet(true);
+                logEkle(interaction.guildId, 'TICKET', 'Bilet Kapatıldı', `#${interaction.channel.name} (${sirali.length} mesaj)`, interaction.user.tag);
+
+                if (ayar.ticketLogKanal) {
+                    const logCh = interaction.guild.channels.cache.get(ayar.ticketLogKanal);
+                    if (logCh) {
+                        const txtDokum = sirali.map(m => `[${m.zaman}] ${m.yazar}: ${m.icerik}${m.ekler?.length ? ' | Ekler: ' + m.ekler.join(', ') : ''}`).join('\n') || 'Mesaj yok.';
+                        const logEmb = new EmbedBuilder()
+                            .setColor('#ef4444')
+                            .setTitle(`🗄️ Bilet Kapatıldı — #${interaction.channel.name}`)
+                            .addFields(
+                                { name: '👤 Bilet Sahibi', value: sahipId ? `<@${sahipId}>` : (acikBilgi.sahipTag || '-'), inline: true },
+                                { name: '📂 Konu', value: acikBilgi.konu || 'Destek', inline: true },
+                                { name: '🙋 Üstlenen', value: ustlenenTag, inline: true },
+                                { name: '🔒 Kapatan', value: interaction.user.tag, inline: true },
+                                { name: '💬 Kayıtlı Mesaj', value: `${sirali.length} mesaj`, inline: true }
+                            ).setTimestamp();
+                        await logCh.send({
+                            embeds: [logEmb],
+                            files: [new AttachmentBuilder(Buffer.from(txtDokum, 'utf8'), { name: `${interaction.channel.name}_gecmis.txt` })]
+                        }).catch(() => {});
+                    }
+                }
 
                 if (sahipId) {
                     const sahipUser = await client.users.fetch(sahipId).catch(() => null);
@@ -2689,6 +3012,25 @@ client.on('interactionCreate', async (interaction) => {
                 ayar.ozelSesOdalari[oda.id] = { sahipId: interaction.user.id, otomatikSil: true, olusturma: Date.now() };
                 logEkle(interaction.guildId, 'SES', 'Özel Oda Açıldı', oda.name, interaction.user.tag);
                 return interaction.reply({ content: `✅ **${oda.name}** oluşturuldu: <#${oda.id}>`, ephemeral: true });
+            }
+
+            if (interaction.customId === 'ticket_uye_modal') {
+                const ayar = sunucuAyarGetir(interaction.guildId);
+                const bilet = ayar.acikBiletler[interaction.channelId];
+                if (!bilet) return interaction.reply({ content: '❌ Bilet bulunamadı.', ephemeral: true });
+                const girdi = interaction.fields.getTextInputValue('eklenecek_id').trim().replace(/[<@!>]/g, '');
+                let hedef = await interaction.guild.members.fetch(girdi).catch(() => null);
+                if (!hedef) {
+                    hedef = interaction.guild.members.cache.find(m => m.user.username.toLowerCase() === girdi.toLowerCase() || m.displayName.toLowerCase().includes(girdi.toLowerCase()));
+                }
+                if (!hedef) return interaction.reply({ content: '❌ Sunucuda bu ID veya isimde üye bulunamadı.', ephemeral: true });
+                await interaction.channel.permissionOverwrites.edit(hedef.id, {
+                    ViewChannel: true, SendMessages: true, AttachFiles: true, ReadMessageHistory: true
+                });
+                if (!Array.isArray(bilet.eklenenUyeler)) bilet.eklenenUyeler = [];
+                if (!bilet.eklenenUyeler.includes(hedef.id)) bilet.eklenenUyeler.push(hedef.id);
+                dbKaydet();
+                return interaction.reply({ embeds: [new EmbedBuilder().setColor('#10b981').setDescription(`👤 ${hedef} bu bilete eklendi! (Ekleyen: ${interaction.user})`)] });
             }
 
             if (interaction.customId.startsWith('tmodal_')) {
@@ -2812,6 +3154,24 @@ client.on('messageCreate', async (message) => {
         ticketMesajKaydet(message);
         if (message.author.bot) return;
         const ayar = sunucuAyarGetir(message.guild.id);
+
+        // --- 0. TICKET ÜSTLENME (CLAIM) YAZMA KİLİDİ BEKÇİSİ ---
+        const aktifBilet = ayar.acikBiletler?.[message.channel.id];
+        if (aktifBilet && aktifBilet.ustlenenId && ayar.ticketUstlenKilidiAktif !== false) {
+            const izinliYazici =
+                message.author.id === aktifBilet.sahipId ||
+                message.author.id === aktifBilet.ustlenenId ||
+                (Array.isArray(aktifBilet.eklenenUyeler) && aktifBilet.eklenenUyeler.includes(message.author.id)) ||
+                ticketUstYetkiliMi(message.guild, message.member, ayar);
+
+            if (!izinliYazici) {
+                await message.delete().catch(() => {});
+                const minNot = ayar.ticketUstlenYazanMinRol ? ` ve <@&${ayar.ticketUstlenYazanMinRol}> (ve üstü)` : ' ve Yöneticiler';
+                const warn = await message.channel.send(`🔒 ${message.author}, bu bilet <@${aktifBilet.ustlenenId}> tarafından üstlenilmiştir! Yalnızca bilet sahibi, üstlenen yetkili${minNot} yazabilir.`);
+                setTimeout(() => warn.delete().catch(() => {}), 5000);
+                return;
+            }
+        }
         const member = message.member;
         const superMi = message.author.id === SUPER_ADMIN_ID;
         const yoneticiMi = superMi || member?.permissions.has(PermissionsBitField.Flags.Administrator);
@@ -2857,26 +3217,38 @@ client.on('messageCreate', async (message) => {
             }
         }
 
-        // --- B. SEVİYE & XP ---
+        // --- B. SEVİYE & XP (KALICI & HATASIZ MOTOR) ---
         if (ayar.moduller.seviye && ayar.leveling?.aktif) {
-            const sonXp = xpCooldown.get(message.author.id) || 0;
-            if (Date.now() - sonXp > 15000) {
-                xpCooldown.set(message.author.id, Date.now());
-                const kazanilan = Math.round((Math.floor(Math.random() * 11) + 10) * (Number(ayar.leveling.xpCarpan) || 1));
+            const xpKey = `${message.guild.id}_${message.author.id}`;
+            const beklemeMs = Math.max(5, Number(ayar.leveling.cooldownSn) || 15) * 1000;
+            const sonXp = xpCooldown.get(xpKey) || 0;
+            if (Date.now() - sonXp >= beklemeMs) {
+                xpCooldown.set(xpKey, Date.now());
+                const carpan = Math.max(0.2, Math.min(10, Number(ayar.leveling.xpCarpan) || 1));
+                const kazanilan = Math.max(1, Math.round((Math.floor(Math.random() * 11) + 10) * carpan));
+                if (!ayar.leveling.kullanicilar) ayar.leveling.kullanicilar = {};
                 if (!ayar.leveling.kullanicilar[message.author.id]) {
-                    ayar.leveling.kullanicilar[message.author.id] = { seviye: 1, xp: 0, username: message.author.username };
+                    ayar.leveling.kullanicilar[message.author.id] = { seviye: 1, xp: 0, toplamXp: 0, username: message.author.username };
                 }
                 const uData = ayar.leveling.kullanicilar[message.author.id];
                 uData.username = message.author.username;
-                uData.xp += kazanilan;
-                const gerekli = uData.seviye * 120;
-                if (uData.xp >= gerekli) {
-                    uData.xp -= gerekli;
+                uData.seviye = Math.max(1, Number(uData.seviye) || 1);
+                uData.xp = Math.max(0, Number(uData.xp) || 0) + kazanilan;
+                uData.toplamXp = Math.max(0, Number(uData.toplamXp) || 0) + kazanilan;
+
+                let seviyeAtladi = false;
+                while (uData.xp >= uData.seviye * 120) {
+                    uData.xp -= uData.seviye * 120;
                     uData.seviye += 1;
-                    const hedefKanal = (ayar.leveling.seviyeKanal && message.guild.channels.cache.get(ayar.leveling.seviyeKanal)) || message.channel;
-                    hedefKanal.send(`🎖️ Tebrikler ${message.author}! **Seviye ${uData.seviye}** oldunuz!`).catch(() => {});
+                    seviyeAtladi = true;
                 }
-                dbKaydet();
+                if (seviyeAtladi) {
+                    dbKaydet(true);
+                    const hedefKanal = (ayar.leveling.seviyeKanal && message.guild.channels.cache.get(ayar.leveling.seviyeKanal)) || message.channel;
+                    hedefKanal.send(`🎖️ Tebrikler ${message.author}! **Seviye ${uData.seviye}** oldunuz! *(Sonraki seviye için ${uData.seviye * 120} XP)*`).catch(() => {});
+                } else {
+                    dbKaydet();
+                }
             }
         }
 
@@ -3505,7 +3877,7 @@ app.post('/api/ayarlar', yetkiliOturumKontrol, (req, res) => {
         tema: yeniAyarlar.tema ? { ...mevcut.tema, ...yeniAyarlar.tema } : mevcut.tema,
         moduller: yeniAyarlar.moduller ? { ...mevcut.moduller, ...yeniAyarlar.moduller } : mevcut.moduller,
         automod: yeniAyarlar.automod ? { ...mevcut.automod, ...yeniAyarlar.automod } : mevcut.automod,
-        leveling: yeniAyarlar.leveling ? { ...mevcut.leveling, ...yeniAyarlar.leveling } : mevcut.leveling,
+        leveling: yeniAyarlar.leveling ? { ...mevcut.leveling, ...yeniAyarlar.leveling, kullanicilar: mevcut.leveling?.kullanicilar || {} } : mevcut.leveling,
         sinavAyar: yeniAyarlar.sinavAyar ? { ...mevcut.sinavAyar, ...yeniAyarlar.sinavAyar } : mevcut.sinavAyar
     };
     logEkle(guildId, 'PANEL', 'Ayarlar Güncellendi', aciklama || 'Panel yapılandırması', req.oturum.username);
@@ -3692,6 +4064,24 @@ app.post('/api/moderasyon/islem', yetkiliOturumKontrol, async (req, res) => {
         if (tur === 'yasakla') { await guild.members.ban(userId, { reason: temizSebep }); return res.json({ basarili: true, mesaj: `${tag} yasaklandı.` }); }
         res.status(400).json({ hata: 'İşlem uygulanamadı.' });
     } catch (err) { res.status(500).json({ hata: err.message }); }
+});
+
+
+app.get('/api/ticket/arsiv/:guildId/:ticketId/txt', yetkiliOturumKontrol, (req, res) => {
+    const ayar = sunucuAyarGetir(req.params.guildId);
+    const bilet = (ayar.kapatilanBiletler || []).find(b => b.id === req.params.ticketId);
+    if (!bilet) return res.status(404).send('Bilet bulunamadı.');
+    const dokum = [
+        `ORDU YÖNETİMİ — BİLET SOHBET DÖKÜMÜ`,
+        `Kanal: #${bilet.kanalAdi} | Konu: ${bilet.konu}`,
+        `Sahip: ${bilet.sahipTag} | Üstlenen: ${bilet.ustlenenTag} | Kapanış: ${bilet.kapanisTarihi}`,
+        `Puan: ${bilet.puan ? bilet.puan + ' ★' : '-'} | Yorum: ${bilet.yorum || '-'}`,
+        `====================================================================`,
+        ...(bilet.mesajlar || []).map(m => `[${m.zaman}] ${m.yazar}: ${m.icerik}${m.ekler?.length ? ' | Ekler: ' + m.ekler.join(', ') : ''}`)
+    ].join('\n');
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${bilet.kanalAdi}_gecmis.txt"`);
+    res.send(dokum);
 });
 
 app.get('/api/ticket/acik/:guildId/:kanalId', yetkiliOturumKontrol, async (req, res) => {
@@ -3932,7 +4322,7 @@ app.delete('/api/uyari/:guildId/:uyariId', yetkiliOturumKontrol, (req, res) => {
 // 13. BAŞLATMA
 // ============================================================================
 bulutDbYukle().finally(() => {
-    app.listen(PORT, () => console.log(`🚀 ORDU YÖNETİMİ v5.1 http://localhost:${PORT} adresinde hazır.`));
+    app.listen(PORT, () => console.log(`🚀 ORDU YÖNETİMİ v5.4 http://localhost:${PORT} adresinde hazır.`));
+    if (!DISCORD_TOKEN) console.error('❌ DISCORD_TOKEN eksik!');
+    else client.login(DISCORD_TOKEN).catch(err => console.error('❌ Bot Giriş Hatası:', err.message));
 });
-if (!DISCORD_TOKEN) console.error('❌ DISCORD_TOKEN eksik!');
-else client.login(DISCORD_TOKEN).catch(err => console.error('❌ Bot Giriş Hatası:', err.message));
