@@ -935,13 +935,29 @@
 
     function cikisYap() { localStorage.clear(); window.location.href = '/'; }
 
+    window.addEventListener('unhandledrejection', (e) => {
+        if (e.reason?.message) toastGoster('⚠️ ' + e.reason.message, true);
+    });
+
     async function sunuculariYukle() {
-        const d = await apiFetch('/api/sunucular');
-        const sel = document.getElementById('guild-select');
-        sel.innerHTML = (d.sunucular || []).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
-        if (!currentGuildId || !d.sunucular.some(s => s.id === currentGuildId)) currentGuildId = d.sunucular[0]?.id || '';
-        sel.value = currentGuildId;
-        if (currentGuildId) await panelVerileriniYukle();
+        try {
+            const d = await apiFetch('/api/sunucular');
+            const sel = document.getElementById('guild-select');
+            const liste = d.sunucular || [];
+            if (liste.length === 0) {
+                sel.innerHTML = '<option value="">Yönetici olduğunuz sunucu bulunamadı</option>';
+                document.getElementById('topbar-guild-name').textContent = 'Sunucu Bulunamadı';
+                toastGoster('⚠️ Botun ekli olduğu ve Yönetici yetkiniz bulunan bir sunucu bulunamadı.', true);
+                return;
+            }
+            sel.innerHTML = liste.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+            if (!currentGuildId || !liste.some(s => s.id === currentGuildId)) currentGuildId = liste[0].id;
+            sel.value = currentGuildId;
+            localStorage.setItem('ordu_guild_id', currentGuildId);
+            await panelVerileriniYukle();
+        } catch (err) {
+            toastGoster('❌ Sunucu listesi alınamadı: ' + err.message, true);
+        }
     }
 
     async function sunucuDegistir(id) { currentGuildId = id; localStorage.setItem('ordu_guild_id', id); await panelVerileriniYukle(); }
@@ -981,6 +997,7 @@
 
     async function panelVerileriniYukle() {
         if (!currentGuildId) return;
+        try {
         const d = await apiFetch(`/api/panel/${currentGuildId}`);
         panelData = d;
         const a = d.ayarlar || {};
@@ -1123,6 +1140,9 @@
         document.getElementById('moduller-grid').innerHTML = MODUL_LISTESI.map(m => `<div class="switch-row"><div class="switch-row-info"><strong>${m.label}</strong></div><label class="toggle-switch"><input type="checkbox" class="modul-cb" data-key="${m.key}" ${a.moduller?.[m.key]!==false?'checked':''}><span class="toggle-slider"></span></label></div>`).join('');
 
         denetimTablosuCiz();
+        } catch (err) {
+            toastGoster('❌ Panel verileri yüklenemedi: ' + err.message, true);
+        }
     }
 
     async function ayarKaydet(yeniAyarlar, aciklama) {
@@ -1519,3 +1539,4 @@
     }
 </script>
 </body>
+</html>
