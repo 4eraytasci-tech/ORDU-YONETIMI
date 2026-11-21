@@ -1,6 +1,6 @@
 {
   "name": "ordu-yonetimi-discord-saas-bot",
-  "version": "5.0.0",
+  "version": "5.2.0",
   "description": "ORDU YONETIMI (TSF) Discord Bot & Komuta Web Paneli",
   "main": "ordu.js",
   "scripts": {
