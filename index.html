@@ -422,10 +422,13 @@
                 </div>
             </section>
 
-            <!-- 4. TICKET ÖZELLEŞTİRME, ALT BAŞLIKLAR & YETKİLİ KARNESİ -->
+            <!-- 4. PRO TICKET KONTROL MERKEZİ -->
             <section id="tab-ticket" class="tab-section">
                 <div class="page-header">
-                    <div><h1>🎫 Destek Bileti Özelleştirme, Alt Başlıklar & Sohbet Arşivi</h1><p>Panel başlığını, açıklamasını, bilet karşılama mesajını, alt başlık kategorilerini ve .PNG görsellerini yönetin.</p></div>
+                    <div>
+                        <h1>🎫 Pro Destek Bileti (Ticket) Yönetim Merkezi</h1>
+                        <p>Üstlenme (Claim) yazma kilidi, alt başlık bazlı Discord kategorisi & yetkili rolü, çok satırlı (Shift+Enter) karşılama notları ve canlı sohbet arşivi.</p>
+                    </div>
                     <button class="btn btn-success" onclick="ticketAyarKaydet()">💾 Tüm Ticket Ayarlarını Kaydet</button>
                 </div>
 
@@ -435,51 +438,119 @@
                     <div class="stat-card"><div class="stat-info"><span>MEMNUNİYET</span><h3 id="t-stat-memnun">%0</h3><small>4–5 ★ Verenler</small></div><div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#34d399;">💚</div></div>
                 </div>
 
+                <!-- KART 1: KATEGORİ, ÜSTLENME (CLAIM) KİLİDİ & YETKİ HİYERARŞİSİ -->
                 <div class="card">
-                    <div class="card-header"><h3>📂 Bilet Alt Başlıkları (Açılır Menü Kategorileri) Yönetimi</h3></div>
-                    <div style="display:grid; grid-template-columns:70px 1.2fr 1.5fr 1.5fr; gap:8px; margin-bottom:8px;">
-                        <div class="form-group" style="margin:0;"><label>Emoji</label><input type="text" id="tk-emoji" class="form-control" value="🎫" placeholder="🎖️"></div>
-                        <div class="form-group" style="margin:0;"><label>Alt Başlık İsmi</label><input type="text" id="tk-isim" class="form-control" placeholder="Örn: Rütbe Talebi"></div>
-                        <div class="form-group" style="margin:0;"><label>Menü Açıklaması</label><input type="text" id="tk-aciklama" class="form-control" placeholder="Örn: Rütbe & terfi işlemleri"></div>
-                        <div class="form-group" style="margin:0;"><label>Bilet İçi Özel Karşılama Notu</label><input type="text" id="tk-not" class="form-control" placeholder="Örn: Roblox adınızı yazın"></div>
+                    <div class="card-header">
+                        <h3>🔐 Bilet Kategorisi, Üstlenme (Claim) Yazma Kilidi & Gelişmiş Ayarlar</h3>
+                        <span class="badge badge-green">PRO YETKİ SİSTEMİ</span>
                     </div>
-                    <div style="display:grid; grid-template-columns:1.5fr 1fr auto; gap:8px; align-items:end; margin-bottom:14px;">
-                        <div class="form-group" style="margin:0;"><label>Kategoriye Özel Görsel URL (Opsiyonel)</label><input type="text" id="tk-gorsel" class="form-control" placeholder="https://... veya sağdan .png seç"></div>
-                        <div class="form-group" style="margin:0;"><label>veya .PNG Yükle</label><input type="file" accept="image/*" class="form-control" onchange="gorselDosyaYukle(this, 'tk-gorsel')"></div>
-                        <button class="btn btn-primary" onclick="ticketAltBaslikEkle()">+ Alt Başlık Ekle</button>
+                    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-bottom:12px;">
+                        <div class="form-group" style="margin:0;">
+                            <label>📁 Varsayılan Bilet Açılış Kategorisi *</label>
+                            <select id="inp-ticketKategori" class="form-control category-select"></select>
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>🛡️ Destek Yetkili Rolü (Bilet Ekibi)</label>
+                            <select id="inp-ticketYetkiliRol" class="form-control role-select"></select>
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>👑 Üstlenilmiş Bilete Yazabilecek Min. Rol (+ Üstü)</label>
+                            <select id="inp-ticketUstlenYazanMinRol" class="form-control role-select"></select>
+                        </div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1.3fr 1.2fr 0.7fr; gap:12px; margin-bottom:14px;">
+                        <div class="form-group" style="margin:0;">
+                            <label>📜 Bilet Log & Otomatik Transcript (.txt) Kanalı</label>
+                            <select id="inp-ticketLogKanal" class="form-control text-channel-select"></select>
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>🏷️ Kanal İsim Şablonu (<code>{kullanici}</code>, <code>{kategori}</code>, <code>{no}</code>)</label>
+                            <input type="text" id="inp-ticketKanalSablonu" class="form-control" value="bilet-{kullanici}-{no}">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>🔢 Kişi Başı Maks. Bilet (0=Sınırsız)</label>
+                            <input type="number" id="inp-ticketMaxAcik" class="form-control" min="0" max="20" value="2">
+                        </div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px;">
+                        <div class="switch-row" style="margin:0;">
+                            <div class="switch-row-info">
+                                <strong>🔒 Üstlenme (Claim) Yazma Kilidi</strong>
+                                <span>Üstlenilince aynı roldeki diğer yetkililer yazamaz; sadece üstlenen, bilet sahibi ve belirlenen üst rol+ yazabilir</span>
+                            </div>
+                            <label class="toggle-switch"><input type="checkbox" id="inp-ticketUstlenKilidiAktif" checked><span class="toggle-slider"></span></label>
+                        </div>
+                        <div class="switch-row" style="margin:0;">
+                            <div class="switch-row-info">
+                                <strong>🙈 Üstlenilince Diğer Yetkililerden Gizle</strong>
+                                <span>Kapalıysa diğer yetkililer bileti salt okunur görür; açıksa kanal onlara tamamen gizlenir</span>
+                            </div>
+                            <label class="toggle-switch"><input type="checkbox" id="inp-ticketUstlenGizle"><span class="toggle-slider"></span></label>
+                        </div>
+                        <div class="switch-row" style="margin:0;">
+                            <div class="switch-row-info">
+                                <strong>🤖 Ticket İçi AI Ön Destek</strong>
+                                <span>Yetkili gelmeden önce yapay zeka ilk bilgilendirmeyi yapar</span>
+                            </div>
+                            <label class="toggle-switch"><input type="checkbox" id="inp-ticketAiAktif"><span class="toggle-slider"></span></label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KART 2: ALT BAŞLIK / KATEGORİ YÖNETİCİSİ (SHIFT+ENTER ÇOK SATIRLI NOT + DÜZENLEME + ÖZEL KATEGORİ) -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📂 Bilet Alt Başlıkları (Açılır Menü Kategorileri) Yönetimi</h3>
+                        <span id="tk-edit-badge" class="badge badge-amber" style="display:none;">✏️ DÜZENLEME MODU</span>
+                    </div>
+                    <input type="hidden" id="tk-edit-index" value="-1">
+                    <div style="display:grid; grid-template-columns:80px 1.2fr 1.5fr; gap:10px; margin-bottom:10px;">
+                        <div class="form-group" style="margin:0;"><label>Emoji</label><input type="text" id="tk-emoji" class="form-control" value="🎫" placeholder="🎖️"></div>
+                        <div class="form-group" style="margin:0;"><label>Alt Başlık İsmi *</label><input type="text" id="tk-isim" class="form-control" placeholder="Örn: Rütbe & Terfi Talebi"></div>
+                        <div class="form-group" style="margin:0;"><label>Menü Kısa Açıklaması</label><input type="text" id="tk-aciklama" class="form-control" placeholder="Örn: TSF Roblox rütbe ve /update işlemleri"></div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1.2fr 1fr; gap:10px; margin-bottom:10px;">
+                        <div class="form-group" style="margin:0;"><label>📁 Bu Başlığa Özel Discord Kategorisi (Boşsa Varsayılan)</label><select id="tk-kategori" class="form-control category-select"></select></div>
+                        <div class="form-group" style="margin:0;"><label>🛡️ Bu Başlığa Özel Yetkili Rolü (Boşsa Varsayılan)</label><select id="tk-yetkili-rol" class="form-control role-select"></select></div>
+                        <div class="form-group" style="margin:0;"><label>🖼️ Kategoriye Özel Görsel URL</label><input type="text" id="tk-gorsel" class="form-control" placeholder="https://... veya sağdan yükle"></div>
+                        <div class="form-group" style="margin:0;"><label>veya .PNG / .JPG Yükle</label><input type="file" accept="image/*" class="form-control" onchange="gorselDosyaYukle(this, 'tk-gorsel')"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>📝 Bilet İçi Özel Karşılama Notu <span style="color:var(--accent);">(Shift+Enter veya Enter ile alt satıra rahatça geçebilirsiniz)</span></label>
+                        <textarea id="tk-not" class="form-control" rows="4" placeholder="Örn:&#10;1) Roblox kullanıcı adınız:&#10;2) Mevcut rütbeniz:&#10;3) Talebinizin detayı:"></textarea>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-bottom:16px;">
+                        <button id="tk-submit-btn" class="btn btn-primary" onclick="ticketAltBaslikEkle()">+ Alt Başlık Ekle</button>
+                        <button id="tk-cancel-btn" class="btn btn-secondary" style="display:none;" onclick="ticketAltBaslikIptal()">✕ Düzenlemeyi İptal Et</button>
                     </div>
                     <div class="table-responsive">
                         <table>
-                            <thead><tr><th>Sıra</th><th>Emoji & Alt Başlık</th><th>Menü Açıklaması</th><th>Özel Not / Görsel</th><th>Sırala / Sil</th></tr></thead>
+                            <thead><tr><th>Sıra</th><th>Emoji & Alt Başlık</th><th>Özel Kategori / Rol</th><th>Özel Karşılama Notu</th><th>İşlemler</th></tr></thead>
                             <tbody id="ticket-altbaslik-body"></tbody>
                         </table>
                     </div>
                 </div>
 
+                <!-- KART 3: PANEL & BİLET METİNLERİ + CANLI ÖNİZLEME -->
                 <div class="grid-2">
                     <div class="card">
-                        <div class="card-header"><h3>🎨 Panel & Bilet Metinleri Özelleştirme</h3></div>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                            <div class="form-group"><label>Biletlerin Açılacağı Kategori</label><select id="inp-ticketKategori" class="form-control category-select"></select></div>
-                            <div class="form-group"><label>Destek Yetkili Rolü</label><select id="inp-ticketYetkiliRol" class="form-control role-select"></select></div>
-                        </div>
+                        <div class="card-header"><h3>🎨 Panel & Açılış Mesajı Özelleştirme</h3></div>
                         <div style="display:grid; grid-template-columns:1fr 85px; gap:10px;">
                             <div class="form-group"><label>Panel Embed Başlığı</label><input type="text" id="inp-ticketPanelBaslik" class="form-control" oninput="ticketOnizlemeGuncelle()"></div>
                             <div class="form-group"><label>Renk</label><input type="color" id="inp-ticketPanelRenk" class="form-control" style="height:38px;padding:2px;" value="#3b82f6" oninput="ticketOnizlemeGuncelle()"></div>
                         </div>
-                        <div class="form-group"><label>Panel Embed Açıklaması</label><textarea id="inp-ticketPanelAciklama" class="form-control" rows="2" oninput="ticketOnizlemeGuncelle()"></textarea></div>
+                        <div class="form-group"><label>Panel Embed Açıklaması (Enter / Shift+Enter ile satır atlayabilirsiniz)</label><textarea id="inp-ticketPanelAciklama" class="form-control" rows="3" oninput="ticketOnizlemeGuncelle()"></textarea></div>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                             <div class="form-group"><label>Açılır Menü Yer Tutucu</label><input type="text" id="inp-ticketMenuPlaceholder" class="form-control" oninput="ticketOnizlemeGuncelle()"></div>
                             <div class="form-group"><label>Panel Alt Bilgi (Footer)</label><input type="text" id="inp-ticketPanelFooter" class="form-control"></div>
                         </div>
-                        <div class="form-group"><label>Açılan Bilet İçi Başlık (<code>{emoji}</code>, <code>{kategori}</code>)</label><input type="text" id="inp-ticketAcilisBaslik" class="form-control"></div>
-                        <div class="form-group"><label>Açılan Bilet İçi Mesaj (<code>{uye}</code>, <code>{kategori}</code>, <code>{aciklama}</code>)</label><textarea id="inp-ticketAcilisMesaj" class="form-control" rows="2"></textarea></div>
+                        <div class="form-group"><label>Açılan Bilet İçi Başlık (<code>{emoji}</code>, <code>{kategori}</code>, <code>{no}</code>)</label><input type="text" id="inp-ticketAcilisBaslik" class="form-control"></div>
+                        <div class="form-group"><label>Açılan Bilet İçi Mesaj (<code>{uye}</code>, <code>{kategori}</code>, <code>{aciklama}</code>, <code>{no}</code>)</label><textarea id="inp-ticketAcilisMesaj" class="form-control" rows="4"></textarea></div>
                         <div class="form-group">
-                            <label>🖼️ Bilet Görseli (.PNG/.JPG Yükle veya URL)</label>
+                            <label>🖼️ Panel Görseli (.PNG/.JPG Yükle veya URL)</label>
                             <input type="text" id="inp-ticketPanelGorselUrl" class="form-control" style="margin-bottom:6px;" oninput="ticketOnizlemeGuncelle()">
                             <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="form-control" onchange="gorselDosyaYukle(this, 'inp-ticketPanelGorselUrl', 'ticket-gorsel-prev')">
                         </div>
-                        <div class="switch-row"><div class="switch-row-info"><strong>🤖 Ticket İçi AI Ön Destek</strong></div><label class="toggle-switch"><input type="checkbox" id="inp-ticketAiAktif"><span class="toggle-slider"></span></label></div>
                     </div>
 
                     <div class="card">
@@ -507,18 +578,19 @@
                         <h4 style="font-size:13.5px; margin-bottom:8px;">🟢 Açık Biletler (Canlı Sohbet Kaydı)</h4>
                         <div class="table-responsive">
                             <table>
-                                <thead><tr><th>Kanal</th><th>Konu</th><th>Üstlenen</th><th>Sohbeti Gör</th></tr></thead>
+                                <thead><tr><th>Kanal</th><th>Konu</th><th>Üstlenen</th><th>Sohbet</th></tr></thead>
                                 <tbody id="acik-biletler-body"></tbody>
                             </table>
                         </div>
                     </div>
                 </div>
 
+                <!-- KART 4: KAPATILAN BİLETLER & TRANSCRIPT -->
                 <div class="card">
-                    <div class="card-header"><h3>🗄️ Kapatılan Biletler — Tam Sohbet Geçmişi, Puanlar & Yorumlar</h3></div>
+                    <div class="card-header"><h3>🗄️ Kapatılan Biletler — Tam Sohbet Geçmişi, Puanlar, Yorumlar & .TXT İndir</h3></div>
                     <div class="table-responsive">
                         <table>
-                            <thead><tr><th>Kanal</th><th>Konu</th><th>Yetkili</th><th>Mesaj</th><th>Puan & Yorum</th><th>Kapanış</th><th>Sohbet</th></tr></thead>
+                            <thead><tr><th>Kanal</th><th>Konu</th><th>Yetkili</th><th>Mesaj</th><th>Puan & Yorum</th><th>Kapanış</th><th>Sohbet / İndir</th></tr></thead>
                             <tbody id="ticket-arsiv-body"></tbody>
                         </table>
                     </div>
@@ -763,6 +835,10 @@
                         <div class="form-group"><label>Giriş-Çıkış Kart Kanalı</label><select id="inp-girisCikisLogKanal" class="form-control text-channel-select"></select></div>
                         <div class="form-group"><label>Oto-Rol</label><select id="inp-otoRol" class="form-control role-select"></select></div>
                         <div class="form-group"><label>Seviye Tebrik Kanalı</label><select id="inp-seviyeKanal" class="form-control text-channel-select"></select></div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <div class="form-group"><label>🏆 XP Çarpanı (Örn: 1 veya 1.5)</label><input type="number" id="inp-xpCarpan" class="form-control" step="0.1" min="0.2" max="10" value="1"></div>
+                            <div class="form-group"><label>⏱️ XP Bekleme Süresi (Saniye)</label><input type="number" id="inp-xpCooldown" class="form-control" min="5" max="300" value="15"></div>
+                        </div>
                     </div>
                     <div class="card">
                         <div class="card-header"><h3>🎨 Giriş & Çıkış Kart Özelleştirme</h3></div>
@@ -1042,13 +1118,19 @@
         geciciOzelKomutlar = JSON.parse(JSON.stringify(a.ozelKomutlar || []));
         ozelKomutlariCiz();
 
-        // Ticket Özelleştirme & Alt Başlıklar
+        // Ticket Özelleştirme, Claim Kilidi & Alt Başlıklar
         document.getElementById('t-stat-toplam').textContent = d.ticketIstatistik.toplamSayisi;
         document.getElementById('t-stat-dagilim').textContent = `${d.ticketIstatistik.acikSayisi} Açık • ${d.ticketIstatistik.kapaliSayisi} Kapalı`;
         document.getElementById('t-stat-puan').textContent = `${d.ticketIstatistik.ortalamaPuan} ★`;
         document.getElementById('t-stat-memnun').textContent = `%${d.ticketIstatistik.memnuniyetOrani}`;
         document.getElementById('inp-ticketKategori').value = a.ticketKategori || '';
         document.getElementById('inp-ticketYetkiliRol').value = a.ticketYetkiliRol || '';
+        document.getElementById('inp-ticketUstlenYazanMinRol').value = a.ticketUstlenYazanMinRol || '';
+        document.getElementById('inp-ticketLogKanal').value = a.ticketLogKanal || '';
+        document.getElementById('inp-ticketKanalSablonu').value = a.ticketKanalSablonu || 'bilet-{kullanici}-{no}';
+        document.getElementById('inp-ticketMaxAcik').value = a.ticketMaxAcik ?? 2;
+        document.getElementById('inp-ticketUstlenKilidiAktif').checked = a.ticketUstlenKilidiAktif !== false;
+        document.getElementById('inp-ticketUstlenGizle').checked = !!a.ticketUstlenGizle;
         document.getElementById('inp-ticketPanelBaslik').value = a.ticketPanelBaslik || '🎫 ORDU YÖNETİMİ — Destek & Yardım Merkezi';
         document.getElementById('inp-ticketPanelAciklama').value = a.ticketPanelAciklama || '';
         document.getElementById('inp-ticketMenuPlaceholder').value = a.ticketMenuPlaceholder || '📂 Destek Kategorisi Seçin...';
@@ -1063,8 +1145,8 @@
         ticketOnizlemeGuncelle();
 
         document.getElementById('yetkili-karnesi-body').innerHTML = (d.yetkiliKarnesi || []).map(y => `<tr><td><strong>${esc(y.yetkili)}</strong></td><td><span class="badge badge-blue">${y.cozulmus}</span></td><td><span class="badge badge-amber">${y.ortalama} ★</span></td><td><small>${esc(y.yorumlar[0]?.yorum || '-')}</small></td></tr>`).join('') || '<tr><td colspan="4" style="color:var(--text-dim);">Kayıt yok.</td></tr>';
-        document.getElementById('acik-biletler-body').innerHTML = (d.acikBiletler || []).map(b => `<tr><td><code>#${esc(b.kanalAdi)}</code></td><td>${esc(b.konu)}</td><td>${esc(b.ustlenenTag)}</td><td><button class="btn btn-secondary btn-sm" onclick="acikBiletOku('${b.kanalId}')">👁️ Oku</button></td></tr>`).join('') || '<tr><td colspan="4" style="color:var(--text-dim);">Açık bilet yok.</td></tr>';
-        document.getElementById('ticket-arsiv-body').innerHTML = (a.kapatilanBiletler || []).map((b, i) => `<tr><td><code>#${esc(b.kanalAdi)}</code></td><td>${esc(b.konu)}</td><td>${esc(b.ustlenenTag||b.kapatan)}</td><td><span class="badge badge-blue">${b.mesajSayisi || (b.mesajlar||[]).length} mesaj</span></td><td>${b.puan?`<span class="badge badge-amber">${b.puan} ★</span> `:''}<small>${esc(b.yorum||'-')}</small></td><td>${esc(b.kapanisTarihi)}</td><td><button class="btn btn-primary btn-sm" onclick="kapaliBiletOku(${i})">👁️ Sohbeti Gör</button></td></tr>`).join('') || '<tr><td colspan="7" style="color:var(--text-dim);">Kapalı bilet yok.</td></tr>';
+        document.getElementById('acik-biletler-body').innerHTML = (d.acikBiletler || []).map(b => `<tr><td><code>#${esc(b.kanalAdi)}</code></td><td>${esc(b.konu)}</td><td>${b.ustlenenId ? `<span class="badge badge-green">🔒 ${esc(b.ustlenenTag)}</span>` : '<span class="badge badge-amber">Boşta</span>'}</td><td><button class="btn btn-secondary btn-sm" onclick="acikBiletOku('${b.kanalId}')">👁️ Oku</button></td></tr>`).join('') || '<tr><td colspan="4" style="color:var(--text-dim);">Açık bilet yok.</td></tr>';
+        document.getElementById('ticket-arsiv-body').innerHTML = (a.kapatilanBiletler || []).map((b, i) => `<tr><td><code>#${esc(b.kanalAdi)}</code></td><td>${esc(b.konu)}</td><td>${esc(b.ustlenenTag||b.kapatan)}</td><td><span class="badge badge-blue">${b.mesajSayisi || (b.mesajlar||[]).length} mesaj</span></td><td>${b.puan?`<span class="badge badge-amber">${b.puan} ★</span> `:''}<small>${esc(b.yorum||'-')}</small></td><td>${esc(b.kapanisTarihi)}</td><td><button class="btn btn-primary btn-sm" onclick="kapaliBiletOku(${i})">👁️ Oku</button> <button class="btn btn-secondary btn-sm" onclick="biletTxtIndir('${b.id}')">⬇️ .TXT</button></td></tr>`).join('') || '<tr><td colspan="7" style="color:var(--text-dim);">Kapalı bilet yok.</td></tr>';
 
         // Ses
         document.getElementById('inp-sesArsivKanal').value = a.sesArsivKanal || '';
@@ -1121,6 +1203,8 @@
         document.getElementById('inp-girisCikisLogKanal').value = a.girisCikisLogKanal || '';
         document.getElementById('inp-otoRol').value = a.otoRol || '';
         document.getElementById('inp-seviyeKanal').value = a.leveling?.seviyeKanal || '';
+        document.getElementById('inp-xpCarpan').value = a.leveling?.xpCarpan ?? 1;
+        document.getElementById('inp-xpCooldown').value = a.leveling?.cooldownSn ?? 15;
         document.getElementById('inp-girisBaslik').value = a.girisBaslik || '';
         document.getElementById('inp-girisRenk').value = a.girisRenk || '#10b981';
         document.getElementById('inp-girisMesaj').value = a.girisMesaj || '';
@@ -1244,18 +1328,27 @@
         document.getElementById('ai-test-cevap').textContent = r.yanit;
     }
 
-    // Ticket Özelleştirme & Alt Başlıklar
+    // Pro Ticket Özelleştirme, Alt Başlık Ekle/Düzenle & Transcript İndirme
+    function kategoriAdiBul(id) {
+        if (!id) return 'Varsayılan Kategori';
+        return (panelData?.kategoriler || []).find(c => c.id === id)?.name || id;
+    }
+    function rolAdiBul(id) {
+        if (!id) return 'Varsayılan Rol';
+        return (panelData?.roller || []).find(r => r.id === id)?.name || id;
+    }
     function ticketAltBasliklariCiz() {
         document.getElementById('ticket-altbaslik-body').innerHTML = geciciTicketKonular.map((k, i) => `
             <tr>
                 <td>${i + 1}</td>
-                <td><strong>${esc(k.emoji || '🎫')} ${esc(k.isim)}</strong></td>
-                <td>${esc(k.aciklama || '-')}</td>
-                <td><small>${esc(k.karsilamaNotu || '-')}</small> ${k.gorselUrl ? '<span class="badge badge-purple">🖼️ Görselli</span>' : ''}</td>
-                <td>
+                <td><strong>${esc(k.emoji || '🎫')} ${esc(k.isim)}</strong><br><small style="color:var(--text-muted);">${esc(k.aciklama || '-')}</small></td>
+                <td><span class="badge badge-blue">📁 ${esc(kategoriAdiBul(k.kategoriId))}</span><br><span class="badge badge-purple" style="margin-top:4px;">🛡️ ${esc(rolAdiBul(k.yetkiliRolId))}</span></td>
+                <td><div style="white-space:pre-wrap; font-size:12px; max-width:260px;">${esc(k.karsilamaNotu || '-')}</div>${k.gorselUrl ? '<span class="badge badge-green" style="margin-top:4px;">🖼️ Görselli</span>' : ''}</td>
+                <td style="white-space:nowrap;">
+                    <button class="btn btn-warning btn-sm" onclick="ticketKonuDuzenle(${i})">✏️</button>
                     <button class="btn btn-secondary btn-sm" onclick="ticketKonuTasi(${i},-1)">↑</button>
                     <button class="btn btn-secondary btn-sm" onclick="ticketKonuTasi(${i},1)">↓</button>
-                    <button class="btn btn-danger btn-sm" onclick="geciciTicketKonular.splice(${i},1);ticketAltBasliklariCiz()">Sil</button>
+                    <button class="btn btn-danger btn-sm" onclick="geciciTicketKonular.splice(${i},1);ticketAltBasliklariCiz()">🗑️</button>
                 </td>
             </tr>
         `).join('') || '<tr><td colspan="5" style="color:var(--text-dim);">Henüz alt başlık eklenmemiş.</td></tr>';
@@ -1266,23 +1359,58 @@
         [geciciTicketKonular[i], geciciTicketKonular[h]] = [geciciTicketKonular[h], geciciTicketKonular[i]];
         ticketAltBasliklariCiz();
     }
+    function ticketKonuDuzenle(i) {
+        const k = geciciTicketKonular[i];
+        if (!k) return;
+        document.getElementById('tk-edit-index').value = i;
+        document.getElementById('tk-emoji').value = k.emoji || '🎫';
+        document.getElementById('tk-isim').value = k.isim || '';
+        document.getElementById('tk-aciklama').value = k.aciklama || '';
+        document.getElementById('tk-kategori').value = k.kategoriId || '';
+        document.getElementById('tk-yetkili-rol').value = k.yetkiliRolId || '';
+        document.getElementById('tk-gorsel').value = k.gorselUrl || '';
+        document.getElementById('tk-not').value = k.karsilamaNotu || '';
+        document.getElementById('tk-submit-btn').textContent = '💾 Alt Başlığı Güncelle';
+        document.getElementById('tk-cancel-btn').style.display = 'inline-flex';
+        document.getElementById('tk-edit-badge').style.display = 'inline-block';
+        document.getElementById('tk-not').focus();
+    }
+    function ticketAltBaslikIptal() {
+        document.getElementById('tk-edit-index').value = '-1';
+        document.getElementById('tk-emoji').value = '🎫';
+        document.getElementById('tk-isim').value = '';
+        document.getElementById('tk-aciklama').value = '';
+        document.getElementById('tk-kategori').value = '';
+        document.getElementById('tk-yetkili-rol').value = '';
+        document.getElementById('tk-gorsel').value = '';
+        document.getElementById('tk-not').value = '';
+        document.getElementById('tk-submit-btn').textContent = '+ Alt Başlık Ekle';
+        document.getElementById('tk-cancel-btn').style.display = 'none';
+        document.getElementById('tk-edit-badge').style.display = 'none';
+    }
     function ticketAltBaslikEkle() {
         const isim = document.getElementById('tk-isim').value.trim();
         if (!isim) return toastGoster('Alt başlık ismi girmelisiniz!', true);
-        geciciTicketKonular.push({
-            id: 'tk_' + Date.now() + '_' + Math.floor(Math.random()*99),
+        const editIdx = Number(document.getElementById('tk-edit-index').value);
+        const obj = {
+            id: (editIdx >= 0 && geciciTicketKonular[editIdx]?.id) ? geciciTicketKonular[editIdx].id : ('tk_' + Date.now() + '_' + Math.floor(Math.random()*99)),
             emoji: document.getElementById('tk-emoji').value.trim() || '🎫',
             isim,
             aciklama: document.getElementById('tk-aciklama').value.trim(),
-            karsilamaNotu: document.getElementById('tk-not').value.trim(),
+            kategoriId: document.getElementById('tk-kategori').value,
+            yetkiliRolId: document.getElementById('tk-yetkili-rol').value,
+            karsilamaNotu: document.getElementById('tk-not').value,
             gorselUrl: document.getElementById('tk-gorsel').value.trim()
-        });
-        document.getElementById('tk-isim').value = '';
-        document.getElementById('tk-aciklama').value = '';
-        document.getElementById('tk-not').value = '';
-        document.getElementById('tk-gorsel').value = '';
+        };
+        if (editIdx >= 0 && editIdx < geciciTicketKonular.length) {
+            geciciTicketKonular[editIdx] = obj;
+            toastGoster('✏️ Alt başlık güncellendi! Kaydetmeyi unutmayın.');
+        } else {
+            geciciTicketKonular.push(obj);
+            toastGoster('✅ Alt başlık eklendi! "Tüm Ticket Ayarlarını Kaydet" butonuna basın.');
+        }
+        ticketAltBaslikIptal();
         ticketAltBasliklariCiz();
-        toastGoster('Alt başlık eklendi! Kalıcı olması için "Tüm Ticket Ayarlarını Kaydet" butonuna basın.');
     }
     function ticketOnizlemeGuncelle() {
         const box = document.getElementById('ticket-preview-box');
@@ -1298,6 +1426,12 @@
         ayarKaydet({
             ticketKategori: document.getElementById('inp-ticketKategori').value,
             ticketYetkiliRol: document.getElementById('inp-ticketYetkiliRol').value,
+            ticketUstlenYazanMinRol: document.getElementById('inp-ticketUstlenYazanMinRol').value,
+            ticketUstlenKilidiAktif: document.getElementById('inp-ticketUstlenKilidiAktif').checked,
+            ticketUstlenGizle: document.getElementById('inp-ticketUstlenGizle').checked,
+            ticketLogKanal: document.getElementById('inp-ticketLogKanal').value,
+            ticketKanalSablonu: document.getElementById('inp-ticketKanalSablonu').value.trim() || 'bilet-{kullanici}-{no}',
+            ticketMaxAcik: Number(document.getElementById('inp-ticketMaxAcik').value) || 0,
             ticketPanelBaslik: document.getElementById('inp-ticketPanelBaslik').value,
             ticketPanelAciklama: document.getElementById('inp-ticketPanelAciklama').value,
             ticketMenuPlaceholder: document.getElementById('inp-ticketMenuPlaceholder').value,
@@ -1308,7 +1442,10 @@
             ticketPanelRenk: document.getElementById('inp-ticketPanelRenk').value,
             ticketAiAktif: document.getElementById('inp-ticketAiAktif').checked,
             ticketKonular: geciciTicketKonular
-        }, 'Tüm Ticket ayarları ve alt başlıklar kaydedildi.');
+        }, 'Tüm Pro Ticket ayarları, üstlenme kilidi ve alt başlıklar kaydedildi.');
+    }
+    function biletTxtIndir(ticketId) {
+        window.open(`/api/ticket/arsiv/${encodeURIComponent(currentGuildId)}/${encodeURIComponent(ticketId)}/txt?token=${encodeURIComponent(authToken)}`, '_blank');
     }
     async function ticketMenusuKur() {
         try {
@@ -1513,7 +1650,7 @@
             girisBaslik: document.getElementById('inp-girisBaslik').value, girisRenk: document.getElementById('inp-girisRenk').value,
             girisMesaj: document.getElementById('inp-girisMesaj').value, girisArkaPlanUrl: document.getElementById('inp-girisArkaPlanUrl').value,
             cikisArkaPlanUrl: document.getElementById('inp-cikisArkaPlanUrl').value,
-            leveling: { ...(panelData?.ayarlar?.leveling||{}), seviyeKanal: document.getElementById('inp-seviyeKanal').value }
+            leveling: { aktif: true, seviyeKanal: document.getElementById('inp-seviyeKanal').value, xpCarpan: Number(document.getElementById('inp-xpCarpan').value) || 1, cooldownSn: Number(document.getElementById('inp-xpCooldown').value) || 15 }
         }, 'Kart ve log ayarları kaydedildi.');
     }
     function temaVeModulKaydet() {
