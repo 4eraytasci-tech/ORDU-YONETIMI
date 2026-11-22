@@ -269,6 +269,7 @@
             </div>
             <div class="topbar-right">
                 <div class="status-chip"><span class="dot-live"></span> Ping: <strong id="topbar-ping">0</strong> ms</div>
+                <button class="btn btn-secondary btn-sm" onclick="sistemYedekleUI()">💾 Yedekle</button>
                 <button class="btn btn-secondary btn-sm" onclick="panelVerileriniYukle()">🔄 Yenile</button>
             </div>
         </header>
@@ -351,6 +352,39 @@
 
                 <div class="card">
                     <div class="card-header">
+                        <h3>🛡️ RoWifi Doğrulama (/verify & /update) & Otomatik Takma Ad Ayarları</h3>
+                        <span class="badge badge-blue">SAF OAUTH 2.0</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:12px;">
+                        <div class="form-group" style="margin:0;">
+                            <label>✅ Doğrulanmış Üye Rolü (Verified Role)</label>
+                            <select id="inp-dogrulanmisRol" class="form-control role-select"></select>
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>🏷️ Takma Ad Şablonu (<code>{roblox}</code>, <code>{rutbe}</code>, <code>{tam_rutbe}</code>)</label>
+                            <input type="text" id="inp-takmaAdSablonu" class="form-control" value="{roblox}" placeholder="Örn: [{rutbe}] {roblox}">
+                        </div>
+                        <div class="switch-row" style="margin:0;">
+                            <div class="switch-row-info">
+                                <strong>🔄 Otomatik Takma Ad (Nickname)</strong>
+                                <span>/verify ve /update sonrası ismi günceller</span>
+                            </div>
+                            <label class="toggle-switch"><input type="checkbox" id="inp-otomatikTakmaAd" checked><span class="toggle-slider"></span></label>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <input type="text" id="verify-arama" class="form-control" placeholder="🔍 Doğrulanmış üyelerde Discord veya Roblox adı ara..." oninput="verifyTablosuFiltrele()">
+                    </div>
+                    <div class="table-responsive" style="max-height:240px; overflow-y:auto;">
+                        <table>
+                            <thead><tr><th>Discord Kullanıcısı</th><th>Roblox Hesabı</th><th>Roblox ID</th><th>Yöntem & Tarih</th><th>İşlem</th></tr></thead>
+                            <tbody id="dogrulanmis-uyeler-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
                         <h3>📋 TSF Rütbe Hiyerarşisi (Yukarı / Aşağı Sıralama)</h3>
                         <div style="display:flex; gap:8px;">
                             <input type="text" id="yeni-rutbe-ad" class="form-control" style="width:200px;" placeholder="Yeni rütbe adı">
@@ -418,6 +452,51 @@
                         <div class="form-group"><label>Test Sorusu</label><input type="text" id="ai-test-soru" class="form-control" placeholder="Örn: TSF rütbe listesini sırasıyla yaz"></div>
                         <button class="btn btn-primary" onclick="aiTestEt()">🚀 AI'a Sor</button>
                         <div id="ai-test-cevap" style="margin-top:14px; background:var(--bg-input); border:1px solid var(--border); border-radius:9px; padding:14px; min-height:150px; font-size:13px; white-space:pre-wrap;">Henüz test yapılmadı...</div>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>🔑 Çoklu Gemini API Key Havuzu (Otomatik Kota Rotasyonu)</h3>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <button class="btn btn-secondary btn-sm" onclick="apiKeyleriTestEtUI()">🧪 Keyleri Test Et</button>
+                                <span id="api-key-sayac-badge" class="badge badge-green">0 Aktif Key</span>
+                            </div>
+                        </div>
+                        <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">
+                            Bir anahtarın kotası (429) dolduğunda bot otomatik sıradaki anahtara geçer. Birden fazla anahtarı aralarına <code>------</code>, virgül veya boşluk koyarak tek seferde ekleyebilirsiniz.
+                        </p>
+                        <div style="display:flex; gap:8px; margin-bottom:10px;">
+                            <input type="text" id="inp-yeniApiKeys" class="form-control" placeholder="API key(leri) yapıştırın (AIzaSy... veya AQ....)...">
+                            <button class="btn btn-primary" onclick="apiKeyEkleUI()">+ Key Ekle</button>
+                        </div>
+                        <div id="api-key-test-sonuc" style="display:none; background:var(--bg-input); border:1px solid var(--border); border-radius:8px; padding:10px; font-size:12px; margin-bottom:10px;"></div>
+                        <div class="table-responsive" style="max-height:220px; overflow-y:auto;">
+                            <table>
+                                <thead><tr><th>#</th><th>API Key (Maskeli)</th><th>Tip / Kaynak</th><th>Durum</th><th>Sil</th></tr></thead>
+                                <tbody id="api-keys-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>🧠 Kalıcı Bot Eğitimi & Bilgi Bankası (Bot Kapansa Bile Unutmaz)</h3>
+                            <label style="display:flex; align-items:center; gap:6px; font-size:12px;"><input type="checkbox" id="inp-aiEgitimHerkeseAcik" checked> Sohbetten herkes eğitebilsin</label>
+                        </div>
+                        <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">
+                            Sohbette <code>@Bot öğren: ...</code> yazarak veya buradan ekleyerek botu eğitin. Tüm bilgiler veritabanına ve yedek sistemine kaydedilir.
+                        </p>
+                        <div style="display:flex; gap:8px; margin-bottom:12px;">
+                            <input type="text" id="inp-yeniEgitimBilgi" class="form-control" placeholder="Örn: Sunucumuzun kurucusu ve Başkomutanı Eray'dır...">
+                            <button class="btn btn-success" onclick="aiEgitimEkleUI()">+ Öğret</button>
+                        </div>
+                        <div class="table-responsive" style="max-height:220px; overflow-y:auto;">
+                            <table>
+                                <thead><tr><th>#</th><th>Öğrenilen Bilgi</th><th>Öğreten</th><th>Sil</th></tr></thead>
+                                <tbody id="ai-egitim-body"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -587,7 +666,10 @@
 
                 <!-- KART 4: KAPATILAN BİLETLER & TRANSCRIPT -->
                 <div class="card">
-                    <div class="card-header"><h3>🗄️ Kapatılan Biletler — Tam Sohbet Geçmişi, Puanlar, Yorumlar & .TXT İndir</h3></div>
+                    <div class="card-header">
+                        <h3>🗄️ Kapatılan Biletler — Gerçek Discord Konuşma Arşivi (.HTML), Puanlar & Yorumlar</h3>
+                        <input type="text" id="ticket-arsiv-arama" class="form-control" style="width:260px;" placeholder="🔍 Kanal, konu veya yetkili ara..." oninput="ticketArsivCiz()">
+                    </div>
                     <div class="table-responsive">
                         <table>
                             <thead><tr><th>Kanal</th><th>Konu</th><th>Yetkili</th><th>Mesaj</th><th>Puan & Yorum</th><th>Kapanış</th><th>Sohbet / İndir</th></tr></thead>
@@ -1099,9 +1181,13 @@
         selectDoldur('.role-select', d.roller, '-- Rol --');
         selectDoldur('.member-select', d.uyeler, '-- Personel Seçin --');
 
-        // Rütbe & Sınav
+        // Rütbe, RoWifi Verify & Sınav
         document.getElementById('inp-robloxGrupId').value = a.robloxGrupId || '';
         document.getElementById('inp-rutbeYetkiliRol').value = a.rutbeYetkiliRol || '';
+        document.getElementById('inp-dogrulanmisRol').value = a.dogrulanmisRol || '';
+        document.getElementById('inp-takmaAdSablonu').value = a.takmaAdSablonu || '{roblox}';
+        document.getElementById('inp-otomatikTakmaAd').checked = a.otomatikTakmaAd !== false;
+        verifyTablosuFiltrele();
         document.getElementById('inp-sinavBaraj').value = a.sinavAyar?.gecmeYuzdesi || 80;
         document.getElementById('inp-sinavHedef').value = a.sinavAyar?.terfiHedefRutbe || '[Or-2] Onbaşı';
         geciciRutbeler = JSON.parse(JSON.stringify(a.tsfRutbeler || []));
@@ -1117,6 +1203,30 @@
         document.getElementById('ai-kanallar-grid').innerHTML = (d.metinKanallari || []).map(c => `<label class="checkbox-item"><input type="checkbox" class="ai-kanal-cb" value="${c.id}" ${izinli.has(c.id)?'checked':''}> ${esc(c.name)}</label>`).join('');
         geciciOzelKomutlar = JSON.parse(JSON.stringify(a.ozelKomutlar || []));
         ozelKomutlariCiz();
+
+        // Çoklu API Key Havuzu & Kalıcı AI Eğitim Bilgileri
+        const keyList = d.apiKeyHavuzu || [];
+        document.getElementById('api-key-sayac-badge').textContent = `${keyList.length} Aktif Key`;
+        document.getElementById('api-keys-body').innerHTML = keyList.map((k, idx) => `
+            <tr>
+                <td>${idx + 1}</td>
+                <td><code>${esc(k.maske)}</code></td>
+                <td><span class="badge badge-blue">${esc(k.tip)}</span> <span class="badge badge-purple">${esc(k.kaynak)}</span></td>
+                <td><span class="badge ${k.durum === 'Hazır' ? 'badge-green' : 'badge-amber'}">${esc(k.durum)}</span></td>
+                <td>${k.kaynak === 'Panel' ? `<button class="btn btn-danger btn-sm" onclick="apiKeySilUI('${esc(k.ham)}')">Sil</button>` : '<small style="color:var(--text-dim);">.env</small>'}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="5" style="color:var(--text-dim);">API key tanımlı değil.</td></tr>';
+
+        document.getElementById('inp-aiEgitimHerkeseAcik').checked = a.aiEgitimHerkeseAcik !== false;
+        const egitimler = a.aiEgitimBilgileri || [];
+        document.getElementById('ai-egitim-body').innerHTML = egitimler.map((e, idx) => `
+            <tr>
+                <td>${idx + 1}</td>
+                <td><div style="white-space:pre-wrap; font-size:12.5px;">${esc(e.bilgi)}</div></td>
+                <td><small>${esc(e.ogreten)}<br>${esc(e.tarih || '')}</small></td>
+                <td><button class="btn btn-danger btn-sm" onclick="aiEgitimSilUI('${e.id}')">Sil</button></td>
+            </tr>
+        `).join('') || '<tr><td colspan="4" style="color:var(--text-dim);">Henüz öğretilmiş bilgi yok.</td></tr>';
 
         // Ticket Özelleştirme, Claim Kilidi & Alt Başlıklar
         document.getElementById('t-stat-toplam').textContent = d.ticketIstatistik.toplamSayisi;
@@ -1146,7 +1256,7 @@
 
         document.getElementById('yetkili-karnesi-body').innerHTML = (d.yetkiliKarnesi || []).map(y => `<tr><td><strong>${esc(y.yetkili)}</strong></td><td><span class="badge badge-blue">${y.cozulmus}</span></td><td><span class="badge badge-amber">${y.ortalama} ★</span></td><td><small>${esc(y.yorumlar[0]?.yorum || '-')}</small></td></tr>`).join('') || '<tr><td colspan="4" style="color:var(--text-dim);">Kayıt yok.</td></tr>';
         document.getElementById('acik-biletler-body').innerHTML = (d.acikBiletler || []).map(b => `<tr><td><code>#${esc(b.kanalAdi)}</code></td><td>${esc(b.konu)}</td><td>${b.ustlenenId ? `<span class="badge badge-green">🔒 ${esc(b.ustlenenTag)}</span>` : '<span class="badge badge-amber">Boşta</span>'}</td><td><button class="btn btn-secondary btn-sm" onclick="acikBiletOku('${b.kanalId}')">👁️ Oku</button></td></tr>`).join('') || '<tr><td colspan="4" style="color:var(--text-dim);">Açık bilet yok.</td></tr>';
-        document.getElementById('ticket-arsiv-body').innerHTML = (a.kapatilanBiletler || []).map((b, i) => `<tr><td><code>#${esc(b.kanalAdi)}</code></td><td>${esc(b.konu)}</td><td>${esc(b.ustlenenTag||b.kapatan)}</td><td><span class="badge badge-blue">${b.mesajSayisi || (b.mesajlar||[]).length} mesaj</span></td><td>${b.puan?`<span class="badge badge-amber">${b.puan} ★</span> `:''}<small>${esc(b.yorum||'-')}</small></td><td>${esc(b.kapanisTarihi)}</td><td><button class="btn btn-primary btn-sm" onclick="kapaliBiletOku(${i})">👁️ Oku</button> <button class="btn btn-secondary btn-sm" onclick="biletTxtIndir('${b.id}')">⬇️ .TXT</button></td></tr>`).join('') || '<tr><td colspan="7" style="color:var(--text-dim);">Kapalı bilet yok.</td></tr>';
+        ticketArsivCiz();
 
         // Ses
         document.getElementById('inp-sesArsivKanal').value = a.sesArsivKanal || '';
@@ -1243,9 +1353,51 @@
         ayarKaydet({
             robloxGrupId: document.getElementById('inp-robloxGrupId').value,
             rutbeYetkiliRol: document.getElementById('inp-rutbeYetkiliRol').value,
+            dogrulanmisRol: document.getElementById('inp-dogrulanmisRol').value,
+            takmaAdSablonu: document.getElementById('inp-takmaAdSablonu').value.trim() || '{roblox}',
+            otomatikTakmaAd: document.getElementById('inp-otomatikTakmaAd').checked,
             tsfRutbeler: geciciRutbeler,
             sinavAyar: { gecmeYuzdesi: Number(document.getElementById('inp-sinavBaraj').value)||80, terfiHedefRutbe: document.getElementById('inp-sinavHedef').value.trim()||'[Or-2] Onbaşı' }
-        }, 'TSF Rütbe ve Sınav ayarları kaydedildi.');
+        }, 'TSF Rütbe, RoWifi Verify ve Sınav ayarları kaydedildi.');
+    }
+    function verifyTablosuFiltrele() {
+        const q = (document.getElementById('verify-arama')?.value || '').toLowerCase().trim();
+        const liste = (panelData?.dogrulanmisUyeler || []).filter(v =>
+            !q || String(v.discordTag || '').toLowerCase().includes(q) || String(v.robloxUsername || '').toLowerCase().includes(q) || String(v.discordId || '').includes(q)
+        );
+        document.getElementById('dogrulanmis-uyeler-body').innerHTML = liste.map(v => `
+            <tr>
+                <td><strong>${esc(v.discordTag)}</strong><br><small style="color:var(--text-dim);">${esc(v.discordId)}</small></td>
+                <td><a href="https://www.roblox.com/users/${esc(v.robloxId)}/profile" target="_blank" style="color:var(--primary);font-weight:700;">${esc(v.robloxUsername)}</a></td>
+                <td><code>${esc(v.robloxId)}</code></td>
+                <td><span class="badge badge-green">${esc(v.yontem || 'OAuth2')}</span> <small>${esc(v.tarih || '')}</small></td>
+                <td><button class="btn btn-danger btn-sm" onclick="verifyKayitSil('${v.discordId}')">Kaldır</button></td>
+            </tr>
+        `).join('') || '<tr><td colspan="5" style="color:var(--text-dim);">Kayıt bulunamadı.</td></tr>';
+    }
+    function ticketArsivCiz() {
+        const q = (document.getElementById('ticket-arsiv-arama')?.value || '').toLowerCase().trim();
+        const liste = (panelData?.ayarlar?.kapatilanBiletler || []).filter(b =>
+            !q || String(b.kanalAdi || '').toLowerCase().includes(q) || String(b.konu || '').toLowerCase().includes(q) || String(b.ustlenenTag || b.kapatan || '').toLowerCase().includes(q)
+        );
+        document.getElementById('ticket-arsiv-body').innerHTML = liste.map(b => `<tr><td><code>#${esc(b.kanalAdi)}</code></td><td>${esc(b.konu)}</td><td>${esc(b.ustlenenTag||b.kapatan)}</td><td><span class="badge badge-blue">${b.mesajSayisi || (b.mesajlar||[]).length} mesaj</span></td><td>${b.puan?`<span class="badge badge-amber">${b.puan} ★</span> `:''}<small>${esc(b.yorum||'-')}</small></td><td>${esc(b.kapanisTarihi)}</td><td><button class="btn btn-primary btn-sm" onclick="biletHtmlOnizle('${b.id}', '${esc(b.kanalAdi)}')">👁️ Discord .HTML</button> <button class="btn btn-secondary btn-sm" onclick="biletHtmlAc('${b.id}')">↗️</button> <button class="btn btn-secondary btn-sm" onclick="biletHtmlIndir('${b.id}')">⬇️</button></td></tr>`).join('') || '<tr><td colspan="7" style="color:var(--text-dim);">Kapalı bilet yok.</td></tr>';
+    }
+    async function apiKeyleriTestEtUI() {
+        const box = document.getElementById('api-key-test-sonuc');
+        box.style.display = 'block';
+        box.innerHTML = '⏳ Havuzdaki tüm API anahtarları Google sunucularında test ediliyor...';
+        try {
+            const r = await apiFetch('/api/api-keys/test', { method: 'POST' });
+            box.innerHTML = (r.sonuclar || []).map(s => `<div><code>${esc(s.maske)}</code> → <strong>${esc(s.durum)}</strong></div>`).join('') || 'Test edilecek key yok.';
+            await panelVerileriniYukle();
+        } catch (e) {
+            box.innerHTML = '❌ Test hatası: ' + esc(e.message);
+        }
+    }
+    async function verifyKayitSil(discordId) {
+        await apiFetch(`/api/verify/${currentGuildId}/${discordId}`, { method: 'DELETE' });
+        toastGoster('🗑️ Doğrulama bağlantısı kaldırıldı.');
+        await panelVerileriniYukle();
     }
     async function sicilSorgula() {
         const uid = document.getElementById('sicil-uye-select').value;
@@ -1319,8 +1471,39 @@
         ayarKaydet({
             aiAktif: document.getElementById('inp-aiAktif').checked, prefix: document.getElementById('inp-prefix').value || '!',
             aiBaglamMesajSayisi: Number(document.getElementById('inp-aiBaglam').value)||10, aiIzinliKanallar,
+            aiEgitimHerkeseAcik: document.getElementById('inp-aiEgitimHerkeseAcik').checked,
             aiSistemTalimati: document.getElementById('inp-aiSistemTalimati').value, ozelKomutlar: geciciOzelKomutlar
-        }, 'AI ve Özel Komutlar (!XXXXX) kaydedildi.');
+        }, 'AI, Eğitim ve Özel Komutlar (!XXXXX) kaydedildi.');
+    }
+    async function apiKeyEkleUI() {
+        const keysMetni = document.getElementById('inp-yeniApiKeys').value.trim();
+        if (!keysMetni) return toastGoster('Lütfen en az bir API key yapıştırın.', true);
+        try {
+            const r = await apiFetch('/api/api-keys/ekle', { method: 'POST', body: JSON.stringify({ keysMetni }) });
+            document.getElementById('inp-yeniApiKeys').value = '';
+            toastGoster(`🔑 ${r.eklenen} yeni API key havuza eklendi! (Toplam: ${r.toplam})`);
+            await panelVerileriniYukle();
+        } catch (e) { toastGoster('❌ ' + e.message, true); }
+    }
+    async function apiKeySilUI(hamKey) {
+        await apiFetch('/api/api-keys/sil', { method: 'POST', body: JSON.stringify({ hamKey }) });
+        toastGoster('🗑️ API key havuzdan çıkarıldı.');
+        await panelVerileriniYukle();
+    }
+    async function aiEgitimEkleUI() {
+        const bilgi = document.getElementById('inp-yeniEgitimBilgi').value.trim();
+        if (!bilgi) return toastGoster('Öğretilecek bilgiyi yazın.', true);
+        try {
+            await apiFetch('/api/ai-egitim/ekle', { method: 'POST', body: JSON.stringify({ guildId: currentGuildId, bilgi }) });
+            document.getElementById('inp-yeniEgitimBilgi').value = '';
+            toastGoster('🧠 Bilgi kalıcı hafızaya kaydedildi!');
+            await panelVerileriniYukle();
+        } catch (e) { toastGoster('❌ ' + e.message, true); }
+    }
+    async function aiEgitimSilUI(id) {
+        await apiFetch(`/api/ai-egitim/${currentGuildId}/${id}`, { method: 'DELETE' });
+        toastGoster('🗑️ Eğitim kaydı silindi.');
+        await panelVerileriniYukle();
     }
     async function aiTestEt() {
         document.getElementById('ai-test-cevap').textContent = '⏳ Yanıt üretiliyor...';
@@ -1443,6 +1626,24 @@
             ticketAiAktif: document.getElementById('inp-ticketAiAktif').checked,
             ticketKonular: geciciTicketKonular
         }, 'Tüm Pro Ticket ayarları, üstlenme kilidi ve alt başlıklar kaydedildi.');
+    }
+    async function sistemYedekleUI() {
+        try {
+            const r = await apiFetch('/api/sistem/yedekle', { method: 'POST' });
+            toastGoster('💾 ' + (r.mesaj || 'Veritabanı ve AI eğitim hafızası yedeklendi!'));
+        } catch (e) { toastGoster('❌ ' + e.message, true); }
+    }
+    function biletHtmlOnizle(ticketId, kanalAdi) {
+        const url = `/api/ticket/arsiv/${encodeURIComponent(currentGuildId)}/${encodeURIComponent(ticketId)}/html?token=${encodeURIComponent(authToken)}`;
+        document.getElementById('modal-title').textContent = `🌐 Discord Konuşma Arşivi — #${kanalAdi}`;
+        document.getElementById('modal-body').innerHTML = `<iframe src="${url}" style="width:100%; height:68vh; border:1px solid var(--border); border-radius:10px; background:#313338;"></iframe>`;
+        document.getElementById('genel-modal').classList.add('open');
+    }
+    function biletHtmlAc(ticketId) {
+        window.open(`/api/ticket/arsiv/${encodeURIComponent(currentGuildId)}/${encodeURIComponent(ticketId)}/html?token=${encodeURIComponent(authToken)}`, '_blank');
+    }
+    function biletHtmlIndir(ticketId) {
+        window.open(`/api/ticket/arsiv/${encodeURIComponent(currentGuildId)}/${encodeURIComponent(ticketId)}/html?download=1&token=${encodeURIComponent(authToken)}`, '_blank');
     }
     function biletTxtIndir(ticketId) {
         window.open(`/api/ticket/arsiv/${encodeURIComponent(currentGuildId)}/${encodeURIComponent(ticketId)}/txt?token=${encodeURIComponent(authToken)}`, '_blank');
