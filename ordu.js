@@ -1138,7 +1138,6 @@ async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTo
     const aktifKeyler = tumApiKeyleriGetir();
     if (!aktifKeyler.length) return '⚠️ Hiç Gemini API anahtarı tanımlı değil. Kontrol Paneli → Yapay Zeka sekmesinden veya Render Environment üzerinden API key ekleyin.';
 
-    // Her modelin ayrı RPM/RPD kotası vardır; gemma-3-27b-it ve flash-lite modelleri yüksek ücretsiz kotaya sahiptir!
     const modelListesi = mod === 'mod'
         ? ['gemini-2.5-flash-lite', 'gemini-2.0-flash-lite', 'gemma-3-27b-it']
         : ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemma-3-27b-it'];
@@ -1163,7 +1162,6 @@ async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTo
               ];
 
         for (const modelAdi of modelListesi) {
-            // Gemma modelleri ses (inlineData) desteklemez
             if (modelAdi.startsWith('gemma') && extraParts.length > 0) continue;
 
             const kovaKey = `${keyParmakIzi}:${modelAdi}`;
@@ -1174,6 +1172,8 @@ async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTo
             }
 
             let basariliYanit = null;
+            let keyYetkisiz = false;
+
             for (const urlBuilder of endpointListesi) {
                 const url = urlBuilder(modelAdi);
                 const gemmaMi = modelAdi.startsWith('gemma');
@@ -1213,13 +1213,23 @@ async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTo
                     const retryMatch = errText.match(/"retryDelay"\s*:\s*"(\d+)s"/i);
                     const beklemeSn = retryMatch ? Math.min(120, Math.max(10, Number(retryMatch[1]) + 2)) : (/limit:\s*0|PerDay/i.test(errText) ? 300 : 25);
                     geminiKotaBekleme.set(kovaKey, Date.now() + beklemeSn * 1000);
-                    sonHataMesaji = `Kota sınırı (${modelAdi}, ${beklemeSn}sn bekleme).`;
+                    sonHataMesaji = `Kota sınırı (${modelAdi}).`;
                     break;
+                }
+
+                if (res.status === 403 || res.status === 401) {
+                    const errText = await res.text().catch(() => '');
+                    sonHataMesaji = `Anahtar erişim/API izni hatası (${res.status}).`;
+                    if (/API has not been used|disabled|PERMISSION_DENIED/i.test(errText)) {
+                        geminiKotaBekleme.set(kovaKey, Date.now() + 15 * 60 * 1000);
+                    }
+                    keyYetkisiz = true;
+                    continue;
                 }
 
                 if (!res.ok) {
                     const errText = await res.text().catch(() => '');
-                    sonHataMesaji = `API (${res.status}): ${errText.slice(0, 140)}`;
+                    sonHataMesaji = `API (${res.status}): ${errText.slice(0, 120)}`;
                     continue;
                 }
 
@@ -1243,10 +1253,11 @@ async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTo
             }
 
             if (basariliYanit) return basariliYanit;
+            if (keyYetkisiz && aqMi) break;
         }
     }
 
-    // YEDEK ÜCRETSİZ AI MOTORU (Tüm Google anahtarları 429 beklerken sohbetin hiç kesilmemesi için)
+    // YEDEK ÜCRETSİZ AI MOTORU (403 veya 429 durumlarında sohbetin kesilmemesi için devreye girer)
     if (mod === 'chat' && extraParts.length === 0) {
         try {
             const fallbackRes = await guvenliFetch('https://text.pollinations.ai/openai', {
@@ -1271,7 +1282,7 @@ async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTo
     if (kotaDolduSayaci > 0) {
         throw new Error('Havuzdaki Gemini anahtarlarının anlık dakikalık kotası doldu (birkaç saniye içinde otomatik sıfırlanır).');
     }
-    throw new Error(sonHataMesaji || 'Gemini AI servisine şu an ulaşılamıyor.');
+    throw new Error(sonHataMesaji || 'AI servisine şu an ulaşılamıyor.');
 }
 
 async function uzunMesajGonder(message, metin) {
