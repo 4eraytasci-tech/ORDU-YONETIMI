@@ -1134,49 +1134,33 @@ async function tamRutbeIslemiYap({ guild, robloxKullaniciAdi, hedefRolId, yetkil
 // ============================================================================
 const geminiKotaBekleme = new Map(); // "keyIndex:model" -> unblockTimestamp
 
-const ucretsizAiYanitCache = new Map(); // soruAnahtar -> { yanit, zaman }
+const ucretsizAiYanitCache = new Map();
 
 async function ucretsizYedekAiSor(sistemTalimati, kullaniciMesaji) {
     const cacheKey = turkceNormalize(String(kullaniciMesaji || '')).slice(0, 120);
     const cached = ucretsizAiYanitCache.get(cacheKey);
-    if (cached && Date.now() - cached.zaman < 300_000) {
+    if (cached && Date.now() - cached.zaman < 180_000) {
         return cached.yanit;
     }
 
-    const promptMetni = `${sistemTalimati || ''}\n\n${kullaniciMesaji}`.slice(0, 5500);
-
-    // 1. Pollinations OpenAI-compatible uç noktası
     try {
-        const res1 = await guvenliFetch('https://text.pollinations.ai/openai', {
+        const res = await guvenliFetch('https://text.pollinations.ai/openai', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model: 'openai',
                 messages: [
-                    { role: 'system', content: (sistemTalimati || 'Yardımcı bir asistansın.').slice(0, 2000) },
-                    { role: 'user', content: String(kullaniciMesaji || '').slice(0, 4500) }
+                    { role: 'system', content: (sistemTalimati || 'Kısa ve net Türkçe cevap ver.').slice(0, 1800) },
+                    { role: 'user', content: String(kullaniciMesaji || '').slice(0, 3500) }
                 ]
             })
         }, 1);
-        if (res1.ok) {
-            const d1 = await res1.json().catch(() => null);
-            const t1 = d1?.choices?.[0]?.message?.content?.trim();
-            if (t1 && !/kota|quota|rate limit/i.test(t1)) {
-                ucretsizAiYanitCache.set(cacheKey, { yanit: t1, zaman: Date.now() });
-                return t1;
-            }
-        }
-    } catch (_) {}
-
-    // 2. Pollinations GET uç noktası
-    try {
-        const kisaPrompt = encodeURIComponent(promptMetni.slice(0, 1800));
-        const res2 = await guvenliFetch(`https://text.pollinations.ai/${kisaPrompt}`, {}, 1);
-        if (res2.ok) {
-            const t2 = (await res2.text()).trim();
-            if (t2 && t2.length > 3 && !t2.startsWith('{') && !/kota|quota|rate limit/i.test(t2)) {
-                ucretsizAiYanitCache.set(cacheKey, { yanit: t2, zaman: Date.now() });
-                return t2;
+        if (res.ok) {
+            const d = await res.json().catch(() => null);
+            const t = d?.choices?.[0]?.message?.content?.trim();
+            if (t && t.length > 2 && !/quota|rate limit|başkomutan\s*\|\s*60/i.test(t)) {
+                ucretsizAiYanitCache.set(cacheKey, { yanit: t, zaman: Date.now() });
+                return t;
             }
         }
     } catch (_) {}
@@ -1187,7 +1171,6 @@ async function ucretsizYedekAiSor(sistemTalimati, kullaniciMesaji) {
 async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTokens = 4096, mod = 'chat') {
     const aktifKeyler = tumApiKeyleriGetir();
 
-    // Sohbet modunda Google anahtarları kota (429) veya erişim (403) verirse önce ücretsiz AI motoruna düşer
     if (mod === 'chat' && extraParts.length === 0 && aktifKeyler.length === 0) {
         const ucretsiz = await ucretsizYedekAiSor(sistemTalimati, kullaniciMesaji);
         if (ucretsiz) return ucretsiz;
@@ -3806,12 +3789,9 @@ client.on('messageCreate', async (message) => {
 
             const soruHam = message.content.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
 
-            // DOĞRUDAN SOHBETTEN KALICI BOT EĞİTİMİ ("@Bot öğren: ..." / "@Bot bilgi ekle: ..." / "@Bot unutma: ...")
+            // DOĞRUDAN SOHBETTEN KALICI BOT EĞİTİMİ ("@Bot öğren: ..." / "@Bot bilgi ekle: ...")
             const egitimEslesme = soruHam.match(/^(?:öğren|ogren|bilgi\s*ekle|unutma|hafızaya\s*al|hafizaya\s*al|ezberle|eğit|egit)\s*[:\-]\s*(.+)$/is);
             if (egitimEslesme && egitimEslesme[1]) {
-                if (!yoneticiMi && ayar.aiEgitimHerkeseAcik === false && false) {
-                    return message.reply('❌ Şu an yalnızca yöneticiler bota yeni bilgi öğretebilir.');
-                }
                 const yeniBilgi = egitimEslesme[1].trim();
                 if (!Array.isArray(ayar.aiEgitimBilgileri)) ayar.aiEgitimBilgileri = [];
                 ayar.aiEgitimBilgileri.unshift({
@@ -3828,13 +3808,27 @@ client.on('messageCreate', async (message) => {
                     embeds: [new EmbedBuilder()
                         .setColor('#10b981')
                         .setTitle('🧠 Öğrendim ve Kalıcı Hafızaya Kaydettim!')
-                        .setDescription(`> ${yeniBilgi}
-
-*Toplam kayıtlı bilgi: **${ayar.aiEgitimBilgileri.length}** • Bot kapansa bile unutulmaz.*`)]
+                        .setDescription(`> ${yeniBilgi}\n\n*Toplam kayıtlı bilgi: **${ayar.aiEgitimBilgileri.length}** • Bot kapansa bile unutulmaz.*`)]
                 });
             }
 
             const soru = soruHam || 'Merhaba, kendini ve görevlerini kısaca tanıt.';
+
+            // 1. ÖNCE KALICI EĞİTİM HAFIZASINDA EŞLEŞME VAR MI KONTROL ET (AI'ın uydurmasını veya bozulmasını önler!)
+            const egitimListesi = Array.isArray(ayar.aiEgitimBilgileri) ? ayar.aiEgitimBilgileri : [];
+            const normSoru = gorunenAdNormalize(soru);
+            const soruKelimeler = normSoru.split(/[^a-z0-9]+/).filter(w => w.length >= 3 && !['zaman', 'nedir', 'nedir', 'nasil', 'nasıl', 'hangi', 'kac', 'kaç', 'kim', 'nerede', 'ne'].includes(w));
+
+            if (egitimListesi.length > 0 && soruKelimeler.length > 0) {
+                const eslesenKayitlar = egitimListesi.filter(item => {
+                    const normBilgi = gorunenAdNormalize(item.bilgi);
+                    return soruKelimeler.some(w => normBilgi.includes(w));
+                });
+                if (eslesenKayitlar.length > 0) {
+                    const cevapMetni = eslesenKayitlar.map(k => `• ${k.bilgi}`).join('\n');
+                    return await uzunMesajGonder(message, cevapMetni);
+                }
+            }
 
             await message.channel.sendTyping().catch(() => {});
             const typingInterval = setInterval(() => {
@@ -3842,7 +3836,6 @@ client.on('messageCreate', async (message) => {
             }, 7000);
 
             try {
-                // Güncel üye ve rollerin önbellekte olduğundan emin ol
                 const tazeSoranMember = await message.member.fetch().catch(() => message.member);
                 const sunucuTamBaglam = await sunucuTamBaglamOlustur(message.guild, ayar);
 
@@ -3854,75 +3847,29 @@ client.on('messageCreate', async (message) => {
                     .join('\n');
 
                 const soranBilgi = uyeRutbeVeKimlikAnaliz(message.guild, tazeSoranMember, ayar);
-                const hedefBilgileri = [];
-                const eklenenIds = new Set([message.author.id, client.user.id]);
-
-                for (const [, mUser] of message.mentions.members) {
-                    if (eklenenIds.has(mUser.id)) continue;
-                    eklenenIds.add(mUser.id);
-                    const tazeHedef = await mUser.fetch().catch(() => mUser);
-                    hedefBilgileri.push(uyeRutbeVeKimlikAnaliz(message.guild, tazeHedef, ayar));
-                }
-
-                // Soruda isim, kullanıcı adı veya Roblox adı geçiyorsa üyeyi bul
-                const normSoru = gorunenAdNormalize(soru);
-                const soruKelimeleri = normSoru.split(/[^a-z0-9_]+/).filter(k => k.length >= 3);
-                if (soruKelimeleri.length > 0 && hedefBilgileri.length < 4) {
-                    for (const [, m] of message.guild.members.cache) {
-                        if (eklenenIds.has(m.id) || m.user.bot) continue;
-                        const dNorm = gorunenAdNormalize(m.displayName);
-                        const uNorm = gorunenAdNormalize(m.user.username);
-                        const rNorm = gorunenAdNormalize(ayar.dogrulamalar?.[m.id]?.robloxUsername || '');
-                        const eslesti = soruKelimeleri.some(k =>
-                            (dNorm && dNorm.includes(k)) ||
-                            (uNorm && uNorm.includes(k)) ||
-                            (rNorm && rNorm.includes(k))
-                        );
-                        if (eslesti) {
-                            eklenenIds.add(m.id);
-                            hedefBilgileri.push(uyeRutbeVeKimlikAnaliz(message.guild, m, ayar));
-                            if (hedefBilgileri.length >= 4) break;
-                        }
-                    }
-                }
-
-                // Rütbe listesi sorulduğunda TÜM TSF rütbe listesini eksiksiz ekle
-                const rutbeListesiSorulduMu = /(rütbe|rutbe|hiyerarşi|hiyerarsi|liste|sıralama|siralama)/i.test(soru);
+                const rutbeListesiSorulduMu = /\b(rutbe\s*listesi|rütbe\s*listesi|hiyerarsi\s*listesi|hiyerarşi\s*listesi)\b/i.test(soru);
                 const tamListeBlok = rutbeListesiSorulduMu
-                    ? `\n\n[RESMİ TAM TSF RÜTBE LİSTESİ — SORULURSA KISALTMADAN HEPSİNİ SIRASIYLA YAZ]:\n${tamRutbeListesiMetni(ayar)}`
+                    ? `\n\n[RESMİ TAM TSF RÜTBE LİSTESİ]:\n${tamRutbeListesiMetni(ayar)}`
+                    : '';
+
+                const egitimBlok = egitimListesi.length
+                    ? `\n\n[KALICI EĞİTİM BİLGİLERİ]:\n` + egitimListesi.map((e, idx) => `${idx + 1}. ${e.bilgi}`).join('\n')
                     : '';
 
                 const kimlikBaglami = [
-                    `[SORUYU SORAN KİŞİNİN TAM PROFİLİ]:`,
-                    `• Görünen İsim: ${soranBilgi.displayName} (Normalize: ${gorunenAdNormalize(soranBilgi.displayName)}) | Discord Kullanıcı Adı: @${soranBilgi.tag}`,
+                    `[SORUYU SORAN KİŞİNİN PROFİLİ]:`,
+                    `• İsim: ${soranBilgi.displayName} (@${soranBilgi.tag})`,
                     `• EN YÜKSEK TSF RÜTBESİ: ${soranBilgi.enYuksekRutbe}`,
-                    `• Discord Hiyerarşisindeki En Üst Rolü: ${soranBilgi.enYuksekDiscordRol}`,
-                    `• Sahip Olduğu TÜM Discord Rolleri (Yukarıdan Aşağıya Sıralı): ${soranBilgi.roller.join(', ') || 'Rol yok'}`,
-                    `• Bağlı Roblox Hesabı: ${soranBilgi.robloxUsername ? `${soranBilgi.robloxUsername} (ID: ${soranBilgi.robloxId})` : 'Doğrulanmamış'}`,
-                    `• Seviye & XP: Seviye ${soranBilgi.seviye} (${soranBilgi.xp} XP) | Haftalık Ses Nöbeti: ${soranBilgi.nobetDakika} dk | Uyarı Sayısı: ${soranBilgi.uyariSayisi}`,
-                    `• Madalyalar: ${soranBilgi.madalyalar.map(m => m.ad).join(', ') || 'Yok'} | Disiplin: ${soranBilgi.disiplin.map(d => `[${d.tur}] ${d.sebep}`).join(', ') || 'Temiz'}`,
-                    ...hedefBilgileri.map(h => [
-                        `\n[SORUDA ADI GEÇEN / ETİKETLENEN PERSONEL]:`,
-                        `• Görünen İsim: ${h.displayName} (@${h.tag}) | EN YÜKSEK TSF RÜTBESİ: ${h.enYuksekRutbe} | En Üst Discord Rolü: ${h.enYuksekDiscordRol}`,
-                        `• TÜM Rolleri: ${h.roller.join(', ') || 'Yok'} | Roblox: ${h.robloxUsername || 'Doğrulanmamış'} | Seviye: ${h.seviye} | Nöbet: ${h.nobetDakika} dk | Uyarı: ${h.uyariSayisi} | Madalyalar: ${h.madalyalar.map(m => m.ad).join(', ') || 'Yok'}`
-                    ].join('\n'))
+                    `• TÜM Rolleri: ${soranBilgi.roller.join(', ') || 'Rol yok'}`
                 ].join('\n');
 
                 const sistem = `${ayar.aiSistemTalimati}
-KESİN KURALLAR:
-1. Sunucudaki HER KULLANICI (rütbesi veya rolü fark etmeksizin) istediği her soruyu sorma hakkına sahiptir; tarih, rütbe, organizasyon, kurulma tarihi veya başka bir konuda ASLA "yetkiniz yok / üst yönetim paylaşabilir / bilgi kısıtlaması" gibi bahaneler üretme ve sorulan her bilgiyi doğrudan, eksiksiz yanıtla.
-2. [KALICI EĞİTİM BİLGİLERİ] bölümünde kayıtlı olan bilgileri kesin gerçek olarak kabul et ve sorulduğunda doğrudan söyle.
-3. Yanıtını ASLA yarıda kesme; cümlelerini ve istenen bilgileri eksiksiz tamamla.
-4. Kullanıcının "EN YÜKSEK TSF RÜTBESİ" ve "Sahip Olduğu TÜM Discord Rolleri" verilerine %100 sadık kal. Örneğin kişinin rolleri arasında Başkomutan varsa ona kesinlikle Başkomutan olarak hitap et ve tüm önemli rollerini/birimlerini doğru say; asla alt rütbelerini ana rütbesi sanma.
-5. Kullanıcı TSF rütbe listesini sorarsa sınıf adlarını söyleyip geçme; sana verilen RESMİ TAM TSF RÜTBE LİSTESİ'ndeki tüm rütbeleri eksiksiz ve sırasıyla yaz.`;
+KURALLAR:
+- Kısa, net ve doğrudan cevap ver; konuyla alakasız rütbe listesi veya uydurma bilgi ekleme.
+- Her kullanıcı her soruyu sorabilir; hiçbir soruda yetki veya bilgi kısıtlaması uydurma.
+- [KALICI EĞİTİM BİLGİLERİ] varsa ve soruyla ilgiliyse o bilgiyi esas al.`;
 
-                const egitimListesi = Array.isArray(ayar.aiEgitimBilgileri) ? ayar.aiEgitimBilgileri : [];
-                const egitimBlok = egitimListesi.length
-                    ? `\n\n[KALICI EĞİTİM BİLGİLERİ — SUNUCU HAFIZASI (BU BİLGİLERE %100 UY VE ASLA UNUTMA)]:\n` +
-                      egitimListesi.map((e, idx) => `${idx + 1}. ${e.bilgi}`).join('\n')
-                    : '';
-
-                const tamPrompt = `${sunucuTamBaglam}${egitimBlok}\n\n${kimlikBaglami}${tamListeBlok}\n\n[KANALDAKİ SON ${baglamSayisi} MESAJ]:\n${baglamMetni}\n\n[KULLANICI SORUSU]:\n${soru}`;
+                const tamPrompt = `${sunucuTamBaglam}${egitimBlok}\n\n${kimlikBaglami}${tamListeBlok}\n\n[SON MESAJLAR]:\n${baglamMetni}\n\n[SORU]:\n${soru}`;
                 const yanit = await geminiSor(sistem, tamPrompt, [], 4096);
                 logEkle(message.guild.id, 'AI', 'AI Yanıt Üretti', `#${message.channel.name}: ${soru.slice(0, 60)}`, message.author.tag);
                 return await uzunMesajGonder(message, yanit);
