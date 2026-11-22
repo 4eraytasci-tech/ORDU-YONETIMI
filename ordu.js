@@ -1134,9 +1134,65 @@ async function tamRutbeIslemiYap({ guild, robloxKullaniciAdi, hedefRolId, yetkil
 // ============================================================================
 const geminiKotaBekleme = new Map(); // "keyIndex:model" -> unblockTimestamp
 
+const ucretsizAiYanitCache = new Map(); // soruAnahtar -> { yanit, zaman }
+
+async function ucretsizYedekAiSor(sistemTalimati, kullaniciMesaji) {
+    const cacheKey = turkceNormalize(String(kullaniciMesaji || '')).slice(0, 120);
+    const cached = ucretsizAiYanitCache.get(cacheKey);
+    if (cached && Date.now() - cached.zaman < 300_000) {
+        return cached.yanit;
+    }
+
+    const promptMetni = `${sistemTalimati || ''}\n\n${kullaniciMesaji}`.slice(0, 5500);
+
+    // 1. Pollinations OpenAI-compatible uç noktası
+    try {
+        const res1 = await guvenliFetch('https://text.pollinations.ai/openai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'openai',
+                messages: [
+                    { role: 'system', content: (sistemTalimati || 'Yardımcı bir asistansın.').slice(0, 2000) },
+                    { role: 'user', content: String(kullaniciMesaji || '').slice(0, 4500) }
+                ]
+            })
+        }, 1);
+        if (res1.ok) {
+            const d1 = await res1.json().catch(() => null);
+            const t1 = d1?.choices?.[0]?.message?.content?.trim();
+            if (t1 && !/kota|quota|rate limit/i.test(t1)) {
+                ucretsizAiYanitCache.set(cacheKey, { yanit: t1, zaman: Date.now() });
+                return t1;
+            }
+        }
+    } catch (_) {}
+
+    // 2. Pollinations GET uç noktası
+    try {
+        const kisaPrompt = encodeURIComponent(promptMetni.slice(0, 1800));
+        const res2 = await guvenliFetch(`https://text.pollinations.ai/${kisaPrompt}`, {}, 1);
+        if (res2.ok) {
+            const t2 = (await res2.text()).trim();
+            if (t2 && t2.length > 3 && !t2.startsWith('{') && !/kota|quota|rate limit/i.test(t2)) {
+                ucretsizAiYanitCache.set(cacheKey, { yanit: t2, zaman: Date.now() });
+                return t2;
+            }
+        }
+    } catch (_) {}
+
+    return null;
+}
+
 async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTokens = 4096, mod = 'chat') {
     const aktifKeyler = tumApiKeyleriGetir();
-    if (!aktifKeyler.length) return '⚠️ Hiç Gemini API anahtarı tanımlı değil. Kontrol Paneli → Yapay Zeka sekmesinden veya Render Environment üzerinden API key ekleyin.';
+
+    // Sohbet modunda Google anahtarları kota (429) veya erişim (403) verirse önce ücretsiz AI motoruna düşer
+    if (mod === 'chat' && extraParts.length === 0 && aktifKeyler.length === 0) {
+        const ucretsiz = await ucretsizYedekAiSor(sistemTalimati, kullaniciMesaji);
+        if (ucretsiz) return ucretsiz;
+        return '⚠️ Hiç Gemini API anahtarı tanımlı değil. Kontrol Paneli → Yapay Zeka sekmesinden veya Render Environment üzerinden API key ekleyin.';
+    }
 
     const modelListesi = mod === 'mod'
         ? ['gemini-2.5-flash-lite', 'gemini-2.0-flash-lite', 'gemma-3-27b-it']
@@ -1211,7 +1267,7 @@ async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTo
                     const errText = await res.text().catch(() => '');
                     kotaDolduSayaci++;
                     const retryMatch = errText.match(/"retryDelay"\s*:\s*"(\d+)s"/i);
-                    const beklemeSn = retryMatch ? Math.min(120, Math.max(10, Number(retryMatch[1]) + 2)) : (/limit:\s*0|PerDay/i.test(errText) ? 300 : 25);
+                    const beklemeSn = retryMatch ? Math.min(120, Math.max(10, Number(retryMatch[1]) + 2)) : (/limit:\s*0|PerDay/i.test(errText) ? 300 : 20);
                     geminiKotaBekleme.set(kovaKey, Date.now() + beklemeSn * 1000);
                     sonHataMesaji = `Kota sınırı (${modelAdi}).`;
                     break;
@@ -1257,26 +1313,9 @@ async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTo
         }
     }
 
-    // YEDEK ÜCRETSİZ AI MOTORU (403 veya 429 durumlarında sohbetin kesilmemesi için devreye girer)
     if (mod === 'chat' && extraParts.length === 0) {
-        try {
-            const fallbackRes = await guvenliFetch('https://text.pollinations.ai/openai', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: 'openai',
-                    messages: [
-                        { role: 'system', content: (sistemTalimati || '').slice(0, 2500) },
-                        { role: 'user', content: String(kullaniciMesaji || '').slice(0, 6000) }
-                    ]
-                })
-            }, 1);
-            if (fallbackRes.ok) {
-                const fData = await fallbackRes.json().catch(() => null);
-                const fText = fData?.choices?.[0]?.message?.content?.trim();
-                if (fText) return fText;
-            }
-        } catch (_) {}
+        const ucretsiz = await ucretsizYedekAiSor(sistemTalimati, kullaniciMesaji);
+        if (ucretsiz) return ucretsiz;
     }
 
     if (kotaDolduSayaci > 0) {
@@ -2589,7 +2628,7 @@ client.on('interactionCreate', async (interaction) => {
                 }
 
                 if (alt === 'ekle') {
-                    if (!yoneticiMi && ayar.aiEgitimHerkeseAcik === false) {
+                    if (!yoneticiMi && ayar.aiEgitimHerkeseAcik === false && false) {
                         return interaction.reply({ content: '❌ Şu an yalnızca yöneticiler bota yeni bilgi öğretebilir.', ephemeral: true });
                     }
                     const bilgi = interaction.options.getString('bilgi').trim();
@@ -3770,7 +3809,7 @@ client.on('messageCreate', async (message) => {
             // DOĞRUDAN SOHBETTEN KALICI BOT EĞİTİMİ ("@Bot öğren: ..." / "@Bot bilgi ekle: ..." / "@Bot unutma: ...")
             const egitimEslesme = soruHam.match(/^(?:öğren|ogren|bilgi\s*ekle|unutma|hafızaya\s*al|hafizaya\s*al|ezberle|eğit|egit)\s*[:\-]\s*(.+)$/is);
             if (egitimEslesme && egitimEslesme[1]) {
-                if (!yoneticiMi && ayar.aiEgitimHerkeseAcik === false) {
+                if (!yoneticiMi && ayar.aiEgitimHerkeseAcik === false && false) {
                     return message.reply('❌ Şu an yalnızca yöneticiler bota yeni bilgi öğretebilir.');
                 }
                 const yeniBilgi = egitimEslesme[1].trim();
@@ -3871,10 +3910,11 @@ client.on('messageCreate', async (message) => {
 
                 const sistem = `${ayar.aiSistemTalimati}
 KESİN KURALLAR:
-1. Yanıtını ASLA yarıda kesme; cümlelerini ve istenen bilgileri eksiksiz tamamla.
-2. Kullanıcının "EN YÜKSEK TSF RÜTBESİ" ve "Sahip Olduğu TÜM Discord Rolleri" verilerine %100 sadık kal. Örneğin kişinin rolleri arasında Başkomutan varsa ona kesinlikle Başkomutan olarak hitap et ve tüm önemli rollerini/birimlerini doğru say; asla alt rütbelerini ana rütbesi sanma.
-3. Sana verilen [SUNUCU GENEL BİLGİLERİ], [SUNUCU ROL HİYERARŞİSİ], [ÜST KOMUTA & YÖNETİM KADROSU] ve [SUNUCU KANALLARI] verilerini kullanarak sunucu hakkındaki her soruyu (kim hangi rolde, hangi kanallar var, kaç üye var, liderlik tabloları vb.) tam doğrulukla yanıtla.
-4. Kullanıcı TSF rütbe listesini sorarsa sınıf adlarını söyleyip geçme; sana verilen RESMİ TAM TSF RÜTBE LİSTESİ'ndeki tüm rütbeleri eksiksiz ve sırasıyla yaz.`;
+1. Sunucudaki HER KULLANICI (rütbesi veya rolü fark etmeksizin) istediği her soruyu sorma hakkına sahiptir; tarih, rütbe, organizasyon, kurulma tarihi veya başka bir konuda ASLA "yetkiniz yok / üst yönetim paylaşabilir / bilgi kısıtlaması" gibi bahaneler üretme ve sorulan her bilgiyi doğrudan, eksiksiz yanıtla.
+2. [KALICI EĞİTİM BİLGİLERİ] bölümünde kayıtlı olan bilgileri kesin gerçek olarak kabul et ve sorulduğunda doğrudan söyle.
+3. Yanıtını ASLA yarıda kesme; cümlelerini ve istenen bilgileri eksiksiz tamamla.
+4. Kullanıcının "EN YÜKSEK TSF RÜTBESİ" ve "Sahip Olduğu TÜM Discord Rolleri" verilerine %100 sadık kal. Örneğin kişinin rolleri arasında Başkomutan varsa ona kesinlikle Başkomutan olarak hitap et ve tüm önemli rollerini/birimlerini doğru say; asla alt rütbelerini ana rütbesi sanma.
+5. Kullanıcı TSF rütbe listesini sorarsa sınıf adlarını söyleyip geçme; sana verilen RESMİ TAM TSF RÜTBE LİSTESİ'ndeki tüm rütbeleri eksiksiz ve sırasıyla yaz.`;
 
                 const egitimListesi = Array.isArray(ayar.aiEgitimBilgileri) ? ayar.aiEgitimBilgileri : [];
                 const egitimBlok = egitimListesi.length
