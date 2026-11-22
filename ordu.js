@@ -281,19 +281,29 @@ function kufurKontrolEt(mesajIcerik, ekstraYasaklilar = []) {
 // 3. KALICI VERİTABANI (YEREL + FIREBASE BULUT SENKRONİZASYONU)
 // ============================================================================
 function dbYukle() {
-    try {
-        if (fs.existsSync(DB_PATH)) {
-            const p = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-            return {
-                sunucular: p.sunucular || {},
-                sesKayitlari: p.sesKayitlari || [],
-                verifiedUsers: p.verifiedUsers || {},
-                pendingVerifications: p.pendingVerifications || {},
-                globalApiKeys: Array.isArray(p.globalApiKeys) ? p.globalApiKeys : []
-            };
+    const adayDosyalar = [DB_PATH, path.join(__dirname, 'veritabani.bak.json')];
+    for (const dosya of adayDosyalar) {
+        try {
+            if (!fs.existsSync(dosya)) continue;
+            const ham = fs.readFileSync(dosya, 'utf8');
+            if (!ham || !ham.trim()) continue;
+            const p = JSON.parse(ham);
+            if (p && typeof p === 'object') {
+                if (dosya !== DB_PATH) {
+                    console.warn('🛡️ Ana veritabanı bozuktu; otomatik yedek (veritabani.bak.json) geri yüklendi.');
+                    try { fs.copyFileSync(dosya, DB_PATH); } catch (_) {}
+                }
+                return {
+                    sunucular: p.sunucular || {},
+                    sesKayitlari: p.sesKayitlari || [],
+                    verifiedUsers: p.verifiedUsers || {},
+                    pendingVerifications: p.pendingVerifications || {},
+                    globalApiKeys: Array.isArray(p.globalApiKeys) ? p.globalApiKeys : []
+                };
+            }
+        } catch (e) {
+            console.warn(`⚠️ Veritabanı okuma uyarısı (${path.basename(dosya)}):`, e.message);
         }
-    } catch (e) {
-        console.error('Veritabanı okuma hatası:', e.message);
     }
     return { sunucular: {}, sesKayitlari: [], verifiedUsers: {}, pendingVerifications: {}, globalApiKeys: [] };
 }
@@ -428,13 +438,42 @@ async function discordKanalinaDbYedekle(zorla = false) {
     } catch (_) {}
 }
 
+const DB_BAK_PATH = path.join(__dirname, 'veritabani.bak.json');
+let dbYazmaKilidi = false;
+let bekleyenDbYaz = false;
+let bekleyenDbHemen = false;
+
+function guvenliAtomikJsonYaz(hedefYol, veriObjesi, yedekYol = null) {
+    const jsonMetni = JSON.stringify(veriObjesi, null, 2);
+    if (yedekYol && fs.existsSync(hedefYol)) {
+        try {
+            const mevcutStat = fs.statSync(hedefYol);
+            if (mevcutStat.size > 10) {
+                fs.copyFileSync(hedefYol, yedekYol);
+            }
+        } catch (_) {}
+    }
+    const geciciYol = `${hedefYol}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+    fs.writeFileSync(geciciYol, jsonMetni, 'utf8');
+    fs.renameSync(geciciYol, hedefYol);
+}
+
 function dbKaydet(hemen = false) {
     const yaz = () => {
-        try {
-            fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
-        } catch (e) {
-            console.error('Veritabanı yazma hatası:', e.message);
+        if (dbYazmaKilidi) {
+            bekleyenDbYaz = true;
+            bekleyenDbHemen = bekleyenDbHemen || hemen;
+            return;
         }
+        dbYazmaKilidi = true;
+        try {
+            guvenliAtomikJsonYaz(DB_PATH, db, DB_BAK_PATH);
+        } catch (e) {
+            console.error('❌ Veritabanı güvenli yazma hatası:', e.message);
+        } finally {
+            dbYazmaKilidi = false;
+        }
+
         if (FIREBASE_DB_URL && bulutHazir) {
             fetch(`${FIREBASE_DB_URL}/ordu_db.json`, {
                 method: 'PUT',
@@ -442,15 +481,30 @@ function dbKaydet(hemen = false) {
                 body: JSON.stringify(db)
             }).catch(() => {});
         }
-        discordKanalinaDbYedekle(false).catch(() => {});
+
+        if (hemen) {
+            setImmediate(() => {
+                discordKanalinaDbYedekle(false).catch(() => {});
+            });
+        } else {
+            discordKanalinaDbYedekle(false).catch(() => {});
+        }
+
+        if (bekleyenDbYaz) {
+            const sonrakiHemen = bekleyenDbHemen;
+            bekleyenDbYaz = false;
+            bekleyenDbHemen = false;
+            dbKaydet(sonrakiHemen);
+        }
     };
+
     if (hemen) {
         if (dbSaveTimer) clearTimeout(dbSaveTimer);
         yaz();
         return;
     }
     if (dbSaveTimer) clearTimeout(dbSaveTimer);
-    dbSaveTimer = setTimeout(yaz, 350);
+    dbSaveTimer = setTimeout(yaz, 400);
 }
 
 function sunucuAyarGetir(guildId) {
@@ -1136,10 +1190,30 @@ const geminiKotaBekleme = new Map(); // "keyIndex:model" -> unblockTimestamp
 
 const ucretsizAiYanitCache = new Map();
 
-async function ucretsizYedekAiSor(sistemTalimati, kullaniciMesaji) {
-    const cacheKey = turkceNormalize(String(kullaniciMesaji || '')).slice(0, 120);
+function yerelAkilliYanitUret(soru, egitimListesi = []) {
+    const sNorm = turkceNormalize(soru || '');
+    if (/^(naber|selam|merhaba|slm|mrb|hey|gunaydin|günaydın|iyi aksamlar|iyi akşamlar)[!.?\s]*$/i.test(sNorm)) {
+        return 'Selam! İyiyim, sen nasılsın? Nasıl yardımcı olabilirim?';
+    }
+    if (egitimListesi.length > 0) {
+        const kelimeler = sNorm.split(/[^a-z0-9]+/).filter(w => w.length >= 3 && !['zaman', 'nedir', 'nasil', 'hangi', 'kac', 'kim', 'nerede', 'ne'].includes(w));
+        if (kelimeler.length > 0) {
+            const eslesen = egitimListesi.filter(item => {
+                const bNorm = turkceNormalize(item.bilgi || '');
+                return kelimeler.some(w => bNorm.includes(w));
+            });
+            if (eslesen.length > 0) {
+                return eslesen.map(x => `• ${x.bilgi}`).join('\n');
+            }
+        }
+    }
+    return 'Şu an yapay zeka servisinde anlık yoğunluk var; birkaç saniye sonra tekrar sorabilir veya hafızaya kayıtlı bilgileri doğrudan sorabilirsin.';
+}
+
+async function ucretsizYedekAiSor(sistemTalimati, kullaniciMesaji, hamSoru = '') {
+    const cacheKey = turkceNormalize(String(hamSoru || kullaniciMesaji || '')).slice(0, 120);
     const cached = ucretsizAiYanitCache.get(cacheKey);
-    if (cached && Date.now() - cached.zaman < 180_000) {
+    if (cached && Date.now() - cached.zaman < 120_000) {
         return cached.yanit;
     }
 
@@ -1150,15 +1224,25 @@ async function ucretsizYedekAiSor(sistemTalimati, kullaniciMesaji) {
             body: JSON.stringify({
                 model: 'openai',
                 messages: [
-                    { role: 'system', content: (sistemTalimati || 'Kısa ve net Türkçe cevap ver.').slice(0, 1800) },
-                    { role: 'user', content: String(kullaniciMesaji || '').slice(0, 3500) }
+                    {
+                        role: 'system',
+                        content: 'Sen ORDU YÖNETİMİ asistanısın. Sadece Türkçe, kısa, doğal ve doğrudan cevap ver. Asla "Anladım, siz bir sürecin parçasısınız" gibi saçma kalıplar kullanma.'
+                    },
+                    {
+                        role: 'user',
+                        content: String(kullaniciMesaji || '').slice(0, 3000)
+                    }
                 ]
             })
         }, 1);
         if (res.ok) {
             const d = await res.json().catch(() => null);
             const t = d?.choices?.[0]?.message?.content?.trim();
-            if (t && t.length > 2 && !/quota|rate limit|başkomutan\s*\|\s*60/i.test(t)) {
+            if (
+                t &&
+                t.length > 1 &&
+                !/sürecin parçasısınız|quota|rate limit|başkomutan\s*\|\s*60/i.test(t)
+            ) {
                 ucretsizAiYanitCache.set(cacheKey, { yanit: t, zaman: Date.now() });
                 return t;
             }
@@ -1168,13 +1252,13 @@ async function ucretsizYedekAiSor(sistemTalimati, kullaniciMesaji) {
     return null;
 }
 
-async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTokens = 4096, mod = 'chat') {
+async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTokens = 4096, mod = 'chat', hamSoru = '') {
     const aktifKeyler = tumApiKeyleriGetir();
 
     if (mod === 'chat' && extraParts.length === 0 && aktifKeyler.length === 0) {
-        const ucretsiz = await ucretsizYedekAiSor(sistemTalimati, kullaniciMesaji);
+        const ucretsiz = await ucretsizYedekAiSor(sistemTalimati, kullaniciMesaji, hamSoru);
         if (ucretsiz) return ucretsiz;
-        return '⚠️ Hiç Gemini API anahtarı tanımlı değil. Kontrol Paneli → Yapay Zeka sekmesinden veya Render Environment üzerinden API key ekleyin.';
+        return yerelAkilliYanitUret(hamSoru || kullaniciMesaji);
     }
 
     const modelListesi = mod === 'mod'
@@ -1297,8 +1381,9 @@ async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTo
     }
 
     if (mod === 'chat' && extraParts.length === 0) {
-        const ucretsiz = await ucretsizYedekAiSor(sistemTalimati, kullaniciMesaji);
+        const ucretsiz = await ucretsizYedekAiSor(sistemTalimati, kullaniciMesaji, hamSoru);
         if (ucretsiz) return ucretsiz;
+        return yerelAkilliYanitUret(hamSoru || kullaniciMesaji);
     }
 
     if (kotaDolduSayaci > 0) {
@@ -2599,14 +2684,13 @@ client.on('interactionCreate', async (interaction) => {
                 }
 
                 if (alt === 'sil') {
-                    if (!yoneticiMi) return interaction.reply({ content: '❌ Bilgi silmek için Yönetici yetkisi gerekir.', ephemeral: true });
                     const num = interaction.options.getInteger('numara');
                     if (num < 1 || num > ayar.aiEgitimBilgileri.length) {
                         return interaction.reply({ content: '❌ Geçersiz bilgi numarası.', ephemeral: true });
                     }
                     const [silinen] = ayar.aiEgitimBilgileri.splice(num - 1, 1);
                     dbKaydet(true);
-                    discordKanalinaDbYedekle(true).catch(() => {});
+                    logEkle(interaction.guildId, 'AI', 'Eğitim Bilgisi Silindi', String(silinen.bilgi || '').slice(0, 80), interaction.user.tag);
                     return interaction.reply({ content: `🗑️ Silindi: **${silinen.bilgi}**`, ephemeral: true });
                 }
 
@@ -3663,9 +3747,22 @@ client.on('channelDelete', (channel) => {
     } catch (_) {}
 });
 
+const kullaniciMesajHizMap = new Map(); // userId -> { zamanlar: [], uyarildi: 0 }
+
 client.on('messageCreate', async (message) => {
     try {
         if (!message.guild) return;
+        const simdiMs = Date.now();
+        if (!message.author.bot) {
+            const hiz = kullaniciMesajHizMap.get(message.author.id) || { zamanlar: [], uyarildi: 0 };
+            hiz.zamanlar = hiz.zamanlar.filter(t => simdiMs - t < 5000);
+            hiz.zamanlar.push(simdiMs);
+            kullaniciMesajHizMap.set(message.author.id, hiz);
+            // Aşırı mesaj yağmurunda (5 saniyede 10+ mesaj) AI ve DB yazma yükünü koru
+            if (hiz.zamanlar.length > 10) {
+                return;
+            }
+        }
         ticketMesajKaydet(message);
         if (message.author.bot) return;
         const ayar = sunucuAyarGetir(message.guild.id);
@@ -3870,12 +3967,12 @@ KURALLAR:
 - [KALICI EĞİTİM BİLGİLERİ] varsa ve soruyla ilgiliyse o bilgiyi esas al.`;
 
                 const tamPrompt = `${sunucuTamBaglam}${egitimBlok}\n\n${kimlikBaglami}${tamListeBlok}\n\n[SON MESAJLAR]:\n${baglamMetni}\n\n[SORU]:\n${soru}`;
-                const yanit = await geminiSor(sistem, tamPrompt, [], 4096);
+                const yanit = await geminiSor(sistem, tamPrompt, [], 4096, 'chat', soru);
                 logEkle(message.guild.id, 'AI', 'AI Yanıt Üretti', `#${message.channel.name}: ${soru.slice(0, 60)}`, message.author.tag);
                 return await uzunMesajGonder(message, yanit);
             } catch (aiErr) {
                 console.error('AI Yanıt Hatası:', aiErr);
-                return await message.reply(`⚠️ Yapay zeka yanıt oluştururken geçici bir sorun oluştu: \`${aiErr.message}\``).catch(() => {});
+                return await message.reply(yerelAkilliYanitUret(soru, egitimListesi)).catch(() => {});
             } finally {
                 clearInterval(typingInterval);
             }
@@ -4098,16 +4195,127 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 // 12. EXPRESS WEB SUNUCUSU, ROWIFI ROBLOX OAUTH 2.0 VE TÜM API UÇ NOKTALARI
 // ============================================================================
 const app = express();
-app.use(express.json({ limit: '15mb' }));
-app.use('/kayitlar', express.static(KAYITLAR_DIR));
-app.use('/uploads', express.static(UPLOADS_DIR));
+app.disable('x-powered-by');
+
+// --- ANTI-DDOS & VERİTABANI KALKANI (IP HIZ SINIRI, ENGEL LİSTESİ & GÜVENLİK BAŞLIKLARI) ---
+const ipIstekSayaci = new Map(); // ip -> { sayac, pencereBaslangic, cezaBitis }
+const yasakliIpler = new Map(); // ip -> bitisTimestamp
+const basarisizAuthSayaci = new Map(); // ip -> { sayac, sonDeneme }
+
+function gercekIpAl(req) {
+    const xff = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    const cfIp = String(req.headers['cf-connecting-ip'] || '').trim();
+    const rawIp = cfIp || xff || req.ip || req.socket?.remoteAddress || '0.0.0.0';
+    return rawIp.replace(/^::ffff:/, '');
+}
+
+const aktifBaglantiSayaci = new Map(); // ip -> eşzamanlı aktif istek sayısı
+
+app.use((req, res, next) => {
+    const ip = gercekIpAl(req);
+    const simdi = Date.now();
+    const rawUrl = String(req.originalUrl || req.url || '');
+    const ua = String(req.headers['user-agent'] || '');
+
+    // 1. Path Traversal & Null-Byte saldırılarını anında engelle
+    if (/%2e%2e|\.\.[/\\]|\0/i.test(rawUrl)) {
+        yasakliIpler.set(ip, simdi + 60 * 60 * 1000);
+        return res.status(403).end();
+    }
+
+    // 2. Zafiyet tarayıcıları ve otomatik saldırı araçlarını engelle
+    if (/sqlmap|nikto|nmap|masscan|acunetix|dirbuster|gobuster|wpscan/i.test(ua)) {
+        yasakliIpler.set(ip, simdi + 60 * 60 * 1000);
+        return res.status(403).end();
+    }
+
+    // 3. Hassas dosya / exploit yollarını anında engelle
+    if (/\.(env|git|sqlite|db|bak|log|sh|php|asp|aspx|config|zip|tar|gz|rar)$/i.test(req.path)) {
+        yasakliIpler.set(ip, simdi + 60 * 60 * 1000);
+        return res.status(403).end();
+    }
+
+    const yasakBitis = yasakliIpler.get(ip) || 0;
+    if (yasakBitis > simdi) {
+        res.setHeader('Retry-After', String(Math.ceil((yasakBitis - simdi) / 1000)));
+        return res.status(429).json({ hata: 'Çok fazla istek tespit edildi (Anti-DDoS Koruması). Lütfen biraz bekleyin.' });
+    }
+
+    // 4. Eşzamanlı bağlantı limiti (Slowloris / Socket exhaustion koruması)
+    const mevcutEsZamani = aktifBaglantiSayaci.get(ip) || 0;
+    if (mevcutEsZamani >= 10) {
+        return res.status(429).json({ hata: 'Eşzamanlı bağlantı sınırına ulaşıldı.' });
+    }
+    aktifBaglantiSayaci.set(ip, mevcutEsZamani + 1);
+    res.on('finish', () => {
+        const kalan = (aktifBaglantiSayaci.get(ip) || 1) - 1;
+        if (kalan <= 0) aktifBaglantiSayaci.delete(ip);
+        else aktifBaglantiSayaci.set(ip, kalan);
+    });
+
+    // 5. API ve Auth rotaları için sıkı DDoS hız sınırı (10 saniyede maks 35 istek)
+    const apiRotasiMi = req.path.startsWith('/api/') || req.path.startsWith('/auth/');
+    const limitSayi = apiRotasiMi ? 35 : 120;
+    const pencereMs = 10_000;
+
+    let kayit = ipIstekSayaci.get(ip);
+    if (!kayit || simdi - kayit.pencereBaslangic > pencereMs) {
+        kayit = { sayac: 1, pencereBaslangic: simdi };
+        ipIstekSayaci.set(ip, kayit);
+    } else {
+        kayit.sayac += 1;
+    }
+
+    if (kayit.sayac > limitSayi) {
+        yasakliIpler.set(ip, simdi + 5 * 60 * 1000); // 5 dakika geçici DDoS blokajı
+        res.setHeader('Retry-After', '300');
+        return res.status(429).json({ hata: 'DDoS koruması tetiklendi: IP adresiniz 5 dakika engellendi.' });
+    }
+
+    // Güvenlik HTTP başlıkları
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+
+    // Her 1000 istekte eski IP kayıtlarını temizle (bellek şişmesini önler)
+    if (ipIstekSayaci.size > 5000) {
+        for (const [k, v] of ipIstekSayaci.entries()) {
+            if (simdi - v.pencereBaslangic > 60_000) ipIstekSayaci.delete(k);
+        }
+    }
+    next();
+});
+
+app.use(express.json({ limit: '4mb' }));
+app.use((err, req, res, next) => {
+    if (err?.type === 'entity.too.large' || err?.status === 413) {
+        return res.status(413).json({ hata: 'İstek boyutu çok büyük (Maksimum 4 MB).' });
+    }
+    if (err instanceof SyntaxError && err.status === 400) {
+        return res.status(400).json({ hata: 'Geçersiz JSON formatı.' });
+    }
+    next(err);
+});
+
+app.use('/kayitlar', express.static(KAYITLAR_DIR, { dotfiles: 'deny', index: false }));
+app.use('/uploads', express.static(UPLOADS_DIR, { dotfiles: 'deny', index: false }));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 function yetkiliOturumKontrol(req, res, next) {
+    const ip = gercekIpAl(req);
     const authHeader = req.headers.authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : (req.query.token || '');
-    const oturum = sessions.get(token);
-    if (!oturum) return res.status(401).json({ hata: 'Oturum geçersiz.' });
+    const oturum = token ? sessions.get(token) : null;
+    if (!oturum) {
+        const bf = basarisizAuthSayaci.get(ip) || { sayac: 0, sonDeneme: 0 };
+        bf.sayac = (Date.now() - bf.sonDeneme < 60_000) ? bf.sayac + 1 : 1;
+        bf.sonDeneme = Date.now();
+        basarisizAuthSayaci.set(ip, bf);
+        if (bf.sayac >= 15) {
+            yasakliIpler.set(ip, Date.now() + 10 * 60 * 1000);
+        }
+        return res.status(401).json({ hata: 'Oturum geçersiz.' });
+    }
     req.oturum = oturum;
     next();
 }
