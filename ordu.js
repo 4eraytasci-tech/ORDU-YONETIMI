@@ -167,6 +167,7 @@ const VARSAYILAN_TSF_RUTBELER = [
     { ad: 'Yönetim Kurulu', sinif: 'Üst Komuta & Yönetim' },
     { ad: 'Yönetim Kurulu Başkanı', sinif: 'Üst Komuta & Yönetim' },
     { ad: 'Başkomutan', sinif: 'Üst Komuta & Yönetim' },
+    { ad: 'Başkumandan', sinif: 'Üst Komuta & Yönetim' },
     { ad: 'Baş Geliştirici', sinif: 'Üst Komuta & Yönetim' },
     { ad: 'Yardımcı Grup Sahibi', sinif: 'Üst Komuta & Yönetim' },
     { ad: '[OF-10] Mareşal', sinif: 'Üst Komuta & Yönetim' },
@@ -841,7 +842,13 @@ async function robloxGrupRutbeDegistir(groupId, userId, hedefRol) {
         });
         if (!patchRes.ok) {
             const errJson = await patchRes.json().catch(() => ({}));
-            throw new Error(errJson?.errors?.[0]?.message || `HTTP ${patchRes.status}`);
+            const hamHata = errJson?.errors?.[0]?.message || `HTTP ${patchRes.status}`;
+            if (/invalid/i.test(hamHata)) {
+                throw new Error(`Roblox rütbe atamasını reddetti (${hamHata}). Olası sebepler:
+• Bot hesabının gruptaki rütbesi **${hedefRol.name}** rütbesinin altında kalıyor veya "Manage lower-ranked member ranks" izni kapalı.
+• Oyuncu zaten bu rütbede veya grup sahibi.`);
+            }
+            throw new Error(hamHata);
         }
         return { basarili: true, yontem: 'Cookie Auth' };
     }
@@ -849,19 +856,28 @@ async function robloxGrupRutbeDegistir(groupId, userId, hedefRol) {
     throw new Error(openCloudHata || 'ROBLOX_API_KEY veya ROBLOX_COOKIE yapılandırılmamış.');
 }
 
-// Başkomutan / Başkumandan eş anlamlı rütbe eşleştirme
+// Başkomutan ve Başkumandan kesin olarak ayrı rütbelerdir; alt-kelime çakışmaları (örn: Çavuş vs Uzman Çavuş) engellenir
 function rutbeAdEslesirMi(rolAdi, hedefRutbeAdi) {
-    const temiz = s => turkceNormalize(s).replace(/baskumandan/g, 'baskomutan').replace(/[^a-z0-9]/g, '');
+    const temiz = s => turkceNormalize(s).replace(/[^a-z0-9]/g, '');
     const rT = temiz(rolAdi);
     const hT = temiz(hedefRutbeAdi);
     if (!rT || !hT) return false;
     if (rT === hT) return true;
-    const hParantezsiz = temiz(hedefRutbeAdi.replace(/^\[[^\]]+\]\s*/, ''));
-    if (hParantezsiz.length >= 3 && (rT === hParantezsiz || rT.includes(hParantezsiz))) return true;
-    const kodEs = hedefRutbeAdi.match(/\b(OF|OR|WO|CW)[\s\-_]?(\d{1,2}(?:\/[ABC])?)\b/i);
-    if (kodEs) {
-        const kodT = temiz(kodEs[1] + kodEs[2]);
-        if (rT.includes(kodT)) return true;
+
+    // Başkomutan ile Başkumandan asla birbirine karışmasın
+    if ((rT.includes('baskomutan') && hT.includes('baskumandan')) || (rT.includes('baskumandan') && hT.includes('baskomutan'))) {
+        return false;
+    }
+
+    const rParantezsiz = temiz(String(rolAdi).replace(/^\[[^\]]+\]\s*/, ''));
+    const hParantezsiz = temiz(String(hedefRutbeAdi).replace(/^\[[^\]]+\]\s*/, ''));
+    if (rParantezsiz && hParantezsiz && rParantezsiz === hParantezsiz) return true;
+
+    // NATO / TSF rütbe kodu eşleşmesi (örn: [Or-2] veya [OF-1/A])
+    const rKod = String(rolAdi).match(/\b(OF|OR|WO|CW)[\s\-_]?(\d{1,2}(?:\/[ABC])?)\b/i);
+    const hKod = String(hedefRutbeAdi).match(/\b(OF|OR|WO|CW)[\s\-_]?(\d{1,2}(?:\/[ABC])?)\b/i);
+    if (rKod && hKod) {
+        return temiz(rKod[1] + rKod[2]) === temiz(hKod[1] + hKod[2]);
     }
     return false;
 }
@@ -1091,6 +1107,9 @@ async function tamRutbeIslemiYap({ guild, robloxKullaniciAdi, hedefRolId, yetkil
 
     const mevcutBilgi = await robloxKullaniciGrupBilgisi(groupId, robloxUser.id);
     if (!mevcutBilgi) throw new Error(`${robloxUser.username} TSF Roblox grubuna üye değil.`);
+    if (String(mevcutBilgi.roleId) === String(hedefRol.id)) {
+        throw new Error(`**${robloxUser.username}** zaten **${hedefRol.name}** rütbesine sahip!`);
+    }
 
     // HİYERARŞİ KONTROLÜ (1520781174656467154 HARİÇ)
     const kontrol = hiyerarsiYetkiKontrol(guild, yetkiliMember, yetkiliUserId, hedefRol.name, mevcutBilgi.roleName, ayar);
@@ -1119,9 +1138,10 @@ async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTo
     const aktifKeyler = tumApiKeyleriGetir();
     if (!aktifKeyler.length) return '⚠️ Hiç Gemini API anahtarı tanımlı değil. Kontrol Paneli → Yapay Zeka sekmesinden veya Render Environment üzerinden API key ekleyin.';
 
+    // Her modelin ayrı RPM/RPD kotası vardır; gemma-3-27b-it ve flash-lite modelleri yüksek ücretsiz kotaya sahiptir!
     const modelListesi = mod === 'mod'
-        ? ['gemini-2.5-flash-lite', 'gemini-2.0-flash-lite', 'gemini-2.0-flash']
-        : ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+        ? ['gemini-2.5-flash-lite', 'gemini-2.0-flash-lite', 'gemma-3-27b-it']
+        : ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemma-3-27b-it'];
 
     const parts = [{ text: kullaniciMesaji }, ...extraParts];
     const etkiliMaxTokens = mod === 'mod' ? 120 : Math.max(2048, Number(maxTokens) || 4096);
@@ -1132,17 +1152,20 @@ async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTo
     for (let kIdx = 0; kIdx < aktifKeyler.length; kIdx++) {
         const apiKey = aktifKeyler[kIdx];
         const keyParmakIzi = apiKey.slice(0, 10) + '...' + apiKey.slice(-4);
-        const endpointListesi = apiKey.startsWith('AQ.')
+        const aqMi = apiKey.startsWith('AQ.');
+        const endpointListesi = aqMi
             ? [
                 (m) => `https://aiplatform.googleapis.com/v1beta1/publishers/google/models/${m}:generateContent?key=${encodeURIComponent(apiKey)}`,
-                (m) => `https://aiplatform.googleapis.com/v1/publishers/google/models/${m}:generateContent?key=${encodeURIComponent(apiKey)}`,
-                (m) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(apiKey)}`
+                (m) => `https://aiplatform.googleapis.com/v1/publishers/google/models/${m}:generateContent?key=${encodeURIComponent(apiKey)}`
               ]
             : [
                 (m) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(apiKey)}`
               ];
 
         for (const modelAdi of modelListesi) {
+            // Gemma modelleri ses (inlineData) desteklemez
+            if (modelAdi.startsWith('gemma') && extraParts.length > 0) continue;
+
             const kovaKey = `${keyParmakIzi}:${modelAdi}`;
             const kilitBitis = geminiKotaBekleme.get(kovaKey) || 0;
             if (kilitBitis > simdi) {
@@ -1153,24 +1176,23 @@ async function geminiSor(sistemTalimati, kullaniciMesaji, extraParts = [], maxTo
             let basariliYanit = null;
             for (const urlBuilder of endpointListesi) {
                 const url = urlBuilder(modelAdi);
-                const istekGonder = async (gelismisMod) => {
+                const gemmaMi = modelAdi.startsWith('gemma');
+                const istekGonder = async (sistemAlaniKullan) => {
                     const generationConfig = {
                         temperature: mod === 'mod' ? 0.1 : 0.45,
                         maxOutputTokens: etkiliMaxTokens
                     };
-                    if (gelismisMod && modelAdi.startsWith('gemini-2.5')) {
+                    if (sistemAlaniKullan && modelAdi.startsWith('gemini-2.5')) {
                         generationConfig.thinkingConfig = { thinkingBudget: mod === 'mod' ? 0 : 256 };
                     }
-                    const body = gelismisMod
+                    const body = (sistemAlaniKullan && !gemmaMi)
                         ? {
                             systemInstruction: { parts: [{ text: sistemTalimati || 'Yardımcı bir asistansın.' }] },
                             contents: [{ role: 'user', parts }],
                             generationConfig
                           }
                         : {
-                            contents: [{ role: 'user', parts: [{ text: `[TALİMAT]: ${sistemTalimati || 'Yardımcı bir asistansın.'}
-
-${kullaniciMesaji}` }, ...extraParts] }],
+                            contents: [{ role: 'user', parts: [{ text: `[TALİMAT]: ${sistemTalimati || 'Yardımcı bir asistansın.'}\n\n${kullaniciMesaji}` }, ...extraParts] }],
                             generationConfig
                           };
                     return guvenliFetch(url, {
@@ -1180,7 +1202,7 @@ ${kullaniciMesaji}` }, ...extraParts] }],
                     }, 2);
                 };
 
-                let res = await istekGonder(true);
+                let res = await istekGonder(!gemmaMi);
                 if (!res.ok && res.status === 400) {
                     res = await istekGonder(false);
                 }
@@ -1188,15 +1210,16 @@ ${kullaniciMesaji}` }, ...extraParts] }],
                 if (res.status === 429) {
                     const errText = await res.text().catch(() => '');
                     kotaDolduSayaci++;
-                    const kaliciLimitSifir = /limit:\s*0|PerDay/i.test(errText);
-                    geminiKotaBekleme.set(kovaKey, Date.now() + (kaliciLimitSifir ? 10 * 60 * 1000 : 65 * 1000));
-                    sonHataMesaji = 'API kotası (429) doldu.';
+                    const retryMatch = errText.match(/"retryDelay"\s*:\s*"(\d+)s"/i);
+                    const beklemeSn = retryMatch ? Math.min(120, Math.max(10, Number(retryMatch[1]) + 2)) : (/limit:\s*0|PerDay/i.test(errText) ? 300 : 25);
+                    geminiKotaBekleme.set(kovaKey, Date.now() + beklemeSn * 1000);
+                    sonHataMesaji = `Kota sınırı (${modelAdi}, ${beklemeSn}sn bekleme).`;
                     break;
                 }
 
                 if (!res.ok) {
                     const errText = await res.text().catch(() => '');
-                    sonHataMesaji = `Gemini API Hatası (${res.status}): ${errText.slice(0, 150)}`;
+                    sonHataMesaji = `API (${res.status}): ${errText.slice(0, 140)}`;
                     continue;
                 }
 
@@ -1223,8 +1246,30 @@ ${kullaniciMesaji}` }, ...extraParts] }],
         }
     }
 
+    // YEDEK ÜCRETSİZ AI MOTORU (Tüm Google anahtarları 429 beklerken sohbetin hiç kesilmemesi için)
+    if (mod === 'chat' && extraParts.length === 0) {
+        try {
+            const fallbackRes = await guvenliFetch('https://text.pollinations.ai/openai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: 'openai',
+                    messages: [
+                        { role: 'system', content: (sistemTalimati || '').slice(0, 2500) },
+                        { role: 'user', content: String(kullaniciMesaji || '').slice(0, 6000) }
+                    ]
+                })
+            }, 1);
+            if (fallbackRes.ok) {
+                const fData = await fallbackRes.json().catch(() => null);
+                const fText = fData?.choices?.[0]?.message?.content?.trim();
+                if (fText) return fText;
+            }
+        } catch (_) {}
+    }
+
     if (kotaDolduSayaci > 0) {
-        throw new Error('Havuzdaki tüm Gemini API anahtarlarının anlık kotası (429) doldu. Kontrol Paneli → Yapay Zeka sekmesinden yeni API key ekleyebilir veya 1 dakika bekleyebilirsiniz.');
+        throw new Error('Havuzdaki Gemini anahtarlarının anlık dakikalık kotası doldu (birkaç saniye içinde otomatik sıfırlanır).');
     }
     throw new Error(sonHataMesaji || 'Gemini AI servisine şu an ulaşılamıyor.');
 }
@@ -4374,7 +4419,7 @@ app.post('/api/api-keys/test', yetkiliOturumKontrol, async (req, res) => {
     for (const k of keyler) {
         const maske = k.slice(0, 10) + '••••••••' + k.slice(-5);
         const url = k.startsWith('AQ.')
-            ? `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash-lite:generateContent?key=${encodeURIComponent(k)}`
+            ? `https://aiplatform.googleapis.com/v1beta1/publishers/google/models/gemini-2.5-flash-lite:generateContent?key=${encodeURIComponent(k)}`
             : `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${encodeURIComponent(k)}`;
         try {
             const r = await guvenliFetch(url, {
@@ -4383,8 +4428,12 @@ app.post('/api/api-keys/test', yetkiliOturumKontrol, async (req, res) => {
                 body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Selam' }] }], generationConfig: { maxOutputTokens: 10 } })
             }, 1);
             if (r.ok) sonuclar.push({ maske, durum: '✅ Aktif (Çalışıyor)' });
-            else if (r.status === 429) sonuclar.push({ maske, durum: '⏳ Kota Dolu (429)' });
-            else sonuclar.push({ maske, durum: `❌ Hata (HTTP ${r.status})` });
+            else if (r.status === 429) sonuclar.push({ maske, durum: '⏳ Anlık Kota Dolu (429)' });
+            else {
+                const errJ = await r.json().catch(() => ({}));
+                const msg = errJ?.error?.message || `HTTP ${r.status}`;
+                sonuclar.push({ maske, durum: `❌ Geçersiz/Yetkisiz (${msg.slice(0, 60)})` });
+            }
         } catch (e) {
             sonuclar.push({ maske, durum: `❌ Ağ Hatası` });
         }
